@@ -531,11 +531,20 @@
   const SHEET_ID = '16056CHjRL4-hbd4hbIb1czvrryGKcwMFYWCDeMDDAHM';
   const CSV_URL  = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv`;
 
+  const baseLayers = {
+    'Street map': L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+      maxZoom: 21
+    }),
+    'Satellite': L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+      attribution: 'Tiles &copy; Esri &mdash; Source: Esri, Maxar, Earthstar Geographics',
+      maxZoom: 19
+    })
+  };
+
   const map = L.map('map');
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-    maxZoom: 21
-  }).addTo(map);
+  baseLayers['Street map'].addTo(map);
+  L.control.layers(baseLayers, null, { position: 'bottomleft' }).addTo(map);
 
   // Map<treeObject, L.Marker>
   const markers = new Map();
