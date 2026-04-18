@@ -160,6 +160,10 @@
         <input type="checkbox" id="filter-info" onchange="applyFilters()">
         Has info label
       </label>
+      <label class="checkbox-item">
+        <input type="checkbox" id="filter-photo" onchange="applyFilters()">
+        Has photo
+      </label>
     </div>
   </div>
 
@@ -496,6 +500,7 @@
     if (checkedConds.length && !checkedConds.includes(tree['Condition'])) return false;
     if (checkedForms.length && !checkedForms.includes(tree['Form']))      return false;
     if (infoOnly && !tree['Info label']) return false;
+    if (document.getElementById('filter-photo').checked && !tree['Photo']) return false;
     return true;
   }
 
