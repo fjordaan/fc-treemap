@@ -1,0 +1,572 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Fulham Cemetery Tree Map</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; font-family: sans-serif; }
+    #map { height: 100vh; width: 100%; }
+
+    #panel-toggle {
+      position: absolute;
+      top: 10px;
+      right: 280px;   /* just left of the 270px panel + 10px gap */
+      z-index: 1001;
+      background: white;
+      border: 2px solid rgba(0,0,0,0.25);
+      border-radius: 4px;
+      padding: 5px 10px;
+      cursor: pointer;
+      font-size: 13px;
+      box-shadow: 0 1px 5px rgba(0,0,0,0.3);
+      user-select: none;
+      transition: right 0.15s;
+    }
+    #panel-toggle:hover { background: #f4f4f4; }
+    #panel-toggle.collapsed { right: 10px; }
+
+    #panel {
+      position: absolute;
+      top: 0;
+      right: 0;
+      bottom: 0;
+      z-index: 1000;
+      background: white;
+      border-left: 2px solid rgba(0,0,0,0.18);
+      padding: 12px;
+      width: 270px;
+      overflow-y: auto;
+      box-shadow: -2px 0 8px rgba(0,0,0,0.15);
+      display: none;
+    }
+    #panel.open { display: block; }
+
+    #tree-count {
+      font-size: 12px;
+      color: #555;
+      margin-bottom: 12px;
+      font-weight: bold;
+    }
+
+    .filter-section { margin-bottom: 12px; }
+    .filter-section > .filter-label {
+      display: block;
+      font-size: 11px;
+      font-weight: bold;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: #777;
+      margin-bottom: 4px;
+    }
+    .filter-section select {
+      width: 100%;
+      font-size: 12px;
+      padding: 4px 6px;
+      border: 1px solid #ccc;
+      border-radius: 3px;
+      background: white;
+    }
+
+    .checkbox-group {
+      overflow-y: auto;
+      border: 1px solid #e0e0e0;
+      border-radius: 3px;
+      padding: 4px 6px;
+    }
+    .checkbox-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      padding: 2px 0;
+      cursor: pointer;
+      color: #333;
+    }
+    .checkbox-item input { cursor: pointer; flex-shrink: 0; }
+
+    .filter-divider { border: none; border-top: 1px solid #eee; margin: 10px 0; }
+
+    /* Popup styles */
+    .tree-popup { font-size: 13px; line-height: 1.65; min-width: 180px; }
+    .tree-popup h4 { font-size: 16px; margin-bottom: 6px; font-style: italic; color: #1a1a1a; }
+    .tree-popup .prop { color: #555; margin: 8px 0; line-height: 1.2; }
+    .tree-popup .prop b { color: #1a1a1a; font-weight: 600; }
+    .tree-popup .links { margin-top: 8px; font-size: 12px; border-top: 1px solid #eee; padding-top: 6px; }
+    .tree-popup .links a { color: #2a7ae2; text-decoration: none; }
+    .tree-popup .links a:hover { text-decoration: underline; }
+  </style>
+</head>
+<body>
+  <div id="map"></div>
+
+  <button id="panel-toggle" onclick="togglePanel()">&#9668; Filters</button>
+
+  <div id="panel" class="open">
+    <div id="tree-count">Loading…</div>
+
+    <div class="filter-section">
+      <span class="filter-label">Scientific name</span>
+      <select id="filter-sci" onchange="applyFilters()">
+        <option value="">All species</option>
+      </select>
+    </div>
+
+    <div class="filter-section">
+      <span class="filter-label">Common name</span>
+      <select id="filter-common" onchange="applyFilters()">
+        <option value="">All common names</option>
+      </select>
+    </div>
+
+    <div class="filter-section">
+      <span class="filter-label">Short name</span>
+      <select id="filter-short" onchange="applyFilters()">
+        <option value="">All short names</option>
+      </select>
+    </div>
+
+    <hr class="filter-divider">
+
+    <div class="filter-section">
+      <span class="filter-label">New trees</span>
+      <div class="checkbox-group" id="filter-new-tags"></div>
+    </div>
+
+    <div class="filter-section">
+      <span class="filter-label">Tags</span>
+      <div class="checkbox-group" id="filter-tags"></div>
+    </div>
+
+    <div class="filter-section">
+      <span class="filter-label">Condition</span>
+      <div class="checkbox-group" id="filter-conditions"></div>
+    </div>
+
+    <div class="filter-section">
+      <span class="filter-label">Form</span>
+      <div class="checkbox-group" id="filter-forms"></div>
+    </div>
+
+    <hr class="filter-divider">
+
+    <div class="filter-section">
+      <label class="checkbox-item">
+        <input type="checkbox" id="filter-info" onchange="applyFilters()">
+        Has info label
+      </label>
+    </div>
+  </div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script>
+  // ── CSV PARSER ───────────────────────────────────────────────────────────────
+  // Handles quoted fields (RFC 4180), CRLF and LF line endings.
+  function parseCSV(text) {
+    const rows = [];
+    let row = [], field = '', inQuotes = false;
+    for (let i = 0; i < text.length; i++) {
+      const ch = text[i], next = text[i + 1];
+      if (inQuotes) {
+        if (ch === '"' && next === '"') { field += '"'; i++; }
+        else if (ch === '"') { inQuotes = false; }
+        else { field += ch; }
+      } else {
+        if (ch === '"') { inQuotes = true; }
+        else if (ch === ',') { row.push(field); field = ''; }
+        else if (ch === '\n') { row.push(field); rows.push(row); row = []; field = ''; }
+        else if (ch !== '\r') { field += ch; }
+      }
+    }
+    // Last row
+    if (row.length || field) { row.push(field); rows.push(row); }
+    return rows;
+  }
+
+  // ── COLOUR MAP ───────────────────────────────────────────────────────────────
+  function hsl(h, s, l) { return `hsl(${h},${s}%,${l}%)`; }
+
+  // Assigns a colour to every distinct scientific name.
+  // Fixed genus groups get defined hues; remaining genera get evenly distributed
+  // hues from ranges that don't clash with the fixed groups.
+  function buildColourMap(trees) {
+    const allNames = [...new Set(trees.map(t => t['Scientific name']).filter(Boolean))].sort();
+    const colourMap = new Map();
+
+    // Each entry: [matchFn, hue, saturation, lightnessMin, lightnessMax]
+    // Multiple species within a group get evenly spaced lightness values.
+    const groups = [
+      // Sycamore — red
+      [n => n === 'Acer pseudoplatanus',                                              0,   70, 40, 60],
+      // Other maples — orange
+      [n => /^Acer\b/.test(n) && n !== 'Acer pseudoplatanus',                        25,  80, 45, 68],
+      // Cedrus — navy blue tints
+      [n => /^Cedrus\b/.test(n),                                                      225, 65, 25, 45],
+      // Other cedar family (Cryptomeria, Thuja) — brown
+      [n => /^(Cryptomeria|Thuja)\b/.test(n),                                         25,  42, 30, 52],
+      // Plane — yellow
+      [n => /^Platanus\b/.test(n),                                                    55,  70, 45, 65],
+      // Lime — light green
+      [n => /^Tilia\b/.test(n),                                                       85,  55, 55, 70],
+      // Hornbeam — mid green
+      [n => /^Carpinus\b/.test(n),                                                    120, 50, 32, 50],
+      // Cypress family — dark green
+      [n => /^(Chamaecyparis|Cupressus|Hesperocyparis|x Hesperotropsis)\b/.test(n), 152,  55, 20, 42],
+      // Crabapple — light blue
+      [n => /^Malus\b/.test(n),                                                       205, 55, 58, 76],
+      // Kanzan & Beni-yutaka cherry — pink
+      [n => /^Prunus\b/.test(n) && /Kanzan|Beni-yutaka/.test(n),                    340,  68, 58, 65],
+      // All other cherry/plum Prunus — light pink
+      [n => /^Prunus\b/.test(n),                                                     340,  42, 74, 88],
+    ];
+
+    for (const [test, hue, sat, lMin, lMax] of groups) {
+      const matching = allNames.filter(n => !colourMap.has(n) && test(n)).sort();
+      matching.forEach((name, i) => {
+        const l = matching.length === 1
+          ? Math.round((lMin + lMax) / 2)
+          : Math.round(lMin + (i / (matching.length - 1)) * (lMax - lMin));
+        colourMap.set(name, hsl(hue, sat, l));
+      });
+    }
+
+    // Everything else — distribute hues across gaps in the fixed colour wheel.
+    // Avoid: 0-42 (reds/orange/brown), 50-90 (yellows/lime), 115-165 (greens),
+    //        195-220 (light blue), 330-360 (pink).
+    // Free ranges: [42,50], [90,115], [165,195], [220,330]
+    const remaining = allNames.filter(n => !colourMap.has(n));
+    const byGenus = {};
+    for (const name of remaining) {
+      const genus = name.split(' ')[0];
+      if (!byGenus[genus]) byGenus[genus] = [];
+      byGenus[genus].push(name);
+    }
+    const genera = Object.keys(byGenus).sort();
+    const freeRanges = [[42, 50], [90, 115], [165, 195], [220, 330]];
+    const totalFree = freeRanges.reduce((s, [a, b]) => s + b - a, 0);
+
+    genera.forEach((genus, gi) => {
+      const frac = genera.length > 1 ? gi / genera.length : 0.5;
+      const target = frac * totalFree;
+      let cum = 0, hue = 42;
+      for (const [a, b] of freeRanges) {
+        const size = b - a;
+        if (target <= cum + size) { hue = a + (target - cum); break; }
+        cum += size;
+      }
+      byGenus[genus].sort().forEach((name, si) => {
+        const n = byGenus[genus].length;
+        const l = n === 1 ? 48 : Math.round(38 + (si / (n - 1)) * 22);
+        colourMap.set(name, hsl(Math.round(hue), 62, l));
+      });
+    });
+
+    return colourMap;
+  }
+
+  // ── SVG ICONS ────────────────────────────────────────────────────────────────
+  function svgTag(content, w = 24, h = 24) {
+    return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${w} ${h}" width="${w}" height="${h}">${content}</svg>`;
+  }
+
+  function circleIcon(fill) {
+    return svgTag(`<circle cx="12" cy="12" r="10" fill="${fill}" stroke="white" stroke-width="2"/>`);
+  }
+
+  function starIcon(fill) {
+    // Circle background with a 5-pointed star inside
+    const pts = [];
+    for (let i = 0; i < 10; i++) {
+      const r = i % 2 === 0 ? 7.5 : 3.2;
+      const angle = (Math.PI * i / 5) - Math.PI / 2;
+      pts.push(`${(12 + r * Math.cos(angle)).toFixed(2)},${(12 + r * Math.sin(angle)).toFixed(2)}`);
+    }
+    return svgTag(
+      `<circle cx="12" cy="12" r="10" fill="${fill}" stroke="white" stroke-width="2"/>` +
+      `<polygon points="${pts.join(' ')}" fill="white" opacity="0.9" stroke="none"/>`
+    );
+  }
+
+  function diamondIcon(fill) {
+    return svgTag(
+      `<polygon points="12,2 22,12 12,22 2,12" fill="${fill}" stroke="white" stroke-width="2" stroke-linejoin="round"/>`
+    );
+  }
+
+  function squareIcon(fill) {
+    // Slightly smaller than the circle (which spans 2–22); square spans 4–20
+    return svgTag(`<rect x="8" y="8" width="8" height="8" fill="${fill}" stroke="white" stroke-width="1.5"/>`);
+  }
+
+  function questionIcon() {
+    return svgTag(
+      `<circle cx="12" cy="12" r="10" fill="white" stroke="#aaa" stroke-width="2"/>` +
+      `<text x="12" y="17" text-anchor="middle" font-size="14" font-weight="bold" fill="#888" font-family="sans-serif">?</text>`
+    );
+  }
+
+  function makeIcon(tree, colour) {
+    const tags = parseTags(tree['Tag']);
+    const condition = (tree['Condition'] || '').trim();
+
+    let svg, anchorY = 12;
+    if (condition === 'Dead') {
+      svg = squareIcon('#888888');
+    } else if (tags.includes('TBC')) {
+      svg = questionIcon();
+    } else if (tags.includes('Highlight')) {
+      svg = starIcon(colour);
+    } else if (tags.some(isNewTag)) {
+      svg = diamondIcon(colour);
+    } else {
+      svg = circleIcon(colour);
+    }
+
+    return L.divIcon({
+      html: svg,
+      className: '',           // suppress Leaflet's default white box
+      iconSize: [24, 24],
+      iconAnchor: [12, anchorY],
+      popupAnchor: [0, -anchorY]
+    });
+  }
+
+  // ── HELPERS ──────────────────────────────────────────────────────────────────
+  function parseTags(tagStr) {
+    if (!tagStr) return [];
+    return tagStr.split(',').map(t => t.trim()).filter(Boolean);
+  }
+
+  function esc(str) {
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
+
+  function calcAge(tree) {
+    const planted = parseInt(tree['Year planted']) || parseInt(tree['Est. year planted']) || null;
+    if (!planted) return null;
+    const endYear = parseInt(tree['Year died']) || new Date().getFullYear();
+    return endYear - planted;
+  }
+
+  // ── POPUP ────────────────────────────────────────────────────────────────────
+  function buildPopup(tree) {
+    // Returns a line "Label: <b>Value</b> suffix" or '' if value is empty.
+    const row = (label, value, suffix = '') =>
+      value ? `<div class="prop"><b>${esc(label)}:</b> ${esc(value)}${suffix ? ' ' + suffix : ''}</div>` : '';
+
+    const age = calcAge(tree);
+    const ageSuffix = age !== null ? `(Age: ${age})` : '';
+
+    let html = `<div class="tree-popup">`;
+    html += `<h4>${esc(tree['Scientific name'] || '(unknown)')}</h4>`;
+    html += row('Common name',      tree['Common name']);
+    html += row('Other names',      tree['Other names']);
+    html += row('Year planted',     tree['Year planted'],     tree['Year planted']     ? ageSuffix : '');
+    html += row('Est. year planted',tree['Est. year planted'],tree['Est. year planted'] ? ageSuffix : '');
+    html += row('Year died',        tree['Year died']);
+    html += row('Form',             tree['Form']);
+    html += row('Condition',        tree['Condition']);
+    html += row('Height',           tree['Height']);
+    html += row('Notes',            tree['Notes']);
+    html += row('Described',        tree['Described']);
+    html += row('Info label',       tree['Info label']);
+
+    const tags = parseTags(tree['Tag']);
+    if (tags.length) html += row('Tags', tags.join(', '));
+    html += row('Ref',              tree['Ref']);
+    html += row('FCF number',       tree['FCF number']);
+
+    const links = [];
+    if (tree['FCF URL'])    links.push(`<a href="${tree['FCF URL']}"    target="_blank" rel="noopener">FCF</a>`);
+    if (tree['Wikipedia'])  links.push(`<a href="${tree['Wikipedia']}"  target="_blank" rel="noopener">Wikipedia</a>`);
+    if (tree['TSO'])        links.push(`<a href="${tree['TSO']}"        target="_blank" rel="noopener">TSOL</a>`);
+    if (tree['Map link'])   links.push(`<a href="${tree['Map link']}"   target="_blank" rel="noopener">Google Maps</a>`);
+    if (links.length) html += `<div class="links">${links.join(' &bull; ')}</div>`;
+
+    html += '</div>';
+    return html;
+  }
+
+  // ── FILTERS ──────────────────────────────────────────────────────────────────
+  const isNewTag = tag => /\bnew\b/i.test(tag);
+
+  function buildFilters(trees) {
+    const sciCounts = {}, commonCounts = {}, shortCounts = {};
+    const tagCounts = {}, newTagCounts = {}, condCounts = {}, formCounts = {};
+
+    for (const tree of trees) {
+      const sci   = tree['Scientific name'];
+      const com   = tree['Common name'];
+      const short = tree['Short name'];
+      const cond  = tree['Condition'];
+      const form  = tree['Form'];
+      if (sci)   sciCounts[sci]     = (sciCounts[sci]     || 0) + 1;
+      if (com)   commonCounts[com]  = (commonCounts[com]  || 0) + 1;
+      if (short) shortCounts[short] = (shortCounts[short] || 0) + 1;
+      if (cond)  condCounts[cond]   = (condCounts[cond]   || 0) + 1;
+      if (form)  formCounts[form]   = (formCounts[form]   || 0) + 1;
+      for (const tag of parseTags(tree['Tag'])) {
+        if (isNewTag(tag)) newTagCounts[tag] = (newTagCounts[tag] || 0) + 1;
+        else               tagCounts[tag]    = (tagCounts[tag]    || 0) + 1;
+      }
+    }
+
+    const fillSelect = (id, counts) => {
+      const sel = document.getElementById(id);
+      for (const [name, count] of Object.entries(counts).sort()) {
+        const opt = document.createElement('option');
+        opt.value = name;
+        opt.textContent = `${name} (${count})`;
+        sel.appendChild(opt);
+      }
+    };
+
+    const fillCheckboxes = (id, counts, cls) => {
+      const div = document.getElementById(id);
+      for (const [val, count] of Object.entries(counts).sort()) {
+        const lbl = document.createElement('label');
+        lbl.className = 'checkbox-item';
+        const cb = document.createElement('input');
+        cb.type = 'checkbox';
+        cb.className = cls;
+        cb.value = val;
+        cb.addEventListener('change', applyFilters);
+        lbl.appendChild(cb);
+        lbl.appendChild(document.createTextNode(` ${val} (${count})`));
+        div.appendChild(lbl);
+      }
+    };
+
+    fillSelect('filter-sci', sciCounts);
+    fillSelect('filter-common', commonCounts);
+    fillSelect('filter-short', shortCounts);
+    fillCheckboxes('filter-new-tags', newTagCounts, 'filter-tag');
+    fillCheckboxes('filter-tags',     tagCounts,    'filter-tag');
+    fillCheckboxes('filter-conditions', condCounts, 'filter-condition');
+    fillCheckboxes('filter-forms',      formCounts, 'filter-form');
+  }
+
+  function matchesFilters(tree) {
+    const sciFilter    = document.getElementById('filter-sci').value;
+    const commonFilter = document.getElementById('filter-common').value;
+    const shortFilter  = document.getElementById('filter-short').value;
+    const checkedTags  = [...document.querySelectorAll('.filter-tag:checked')].map(cb => cb.value);
+    const checkedConds = [...document.querySelectorAll('.filter-condition:checked')].map(cb => cb.value);
+    const checkedForms = [...document.querySelectorAll('.filter-form:checked')].map(cb => cb.value);
+    const infoOnly     = document.getElementById('filter-info').checked;
+
+    if (sciFilter    && tree['Scientific name'] !== sciFilter)    return false;
+    if (commonFilter && tree['Common name']     !== commonFilter) return false;
+    if (shortFilter  && tree['Short name']      !== shortFilter)  return false;
+    if (checkedTags.length) {
+      const treeTags = parseTags(tree['Tag']);
+      if (!checkedTags.some(t => treeTags.includes(t))) return false;
+    }
+    if (checkedConds.length && !checkedConds.includes(tree['Condition'])) return false;
+    if (checkedForms.length && !checkedForms.includes(tree['Form']))      return false;
+    if (infoOnly && !tree['Info label']) return false;
+    return true;
+  }
+
+  function applyFilters() {
+    let count = 0;
+    markers.forEach((marker, tree) => {
+      const show = matchesFilters(tree);
+      if (show) {
+        if (!map.hasLayer(marker)) marker.addTo(map);
+        count++;
+      } else {
+        if (map.hasLayer(marker)) marker.remove();
+      }
+    });
+    document.getElementById('tree-count').textContent =
+      `${count} tree${count !== 1 ? 's' : ''} shown`;
+  }
+
+  function togglePanel() {
+    const panel  = document.getElementById('panel');
+    const toggle = document.getElementById('panel-toggle');
+    const open   = panel.classList.toggle('open');
+    toggle.classList.toggle('collapsed', !open);
+    toggle.textContent = open ? '\u25c0 Filters' : '\u25b6 Filters';
+  }
+
+  // ── MAP SETUP ────────────────────────────────────────────────────────────────
+  const SHEET_ID = '16056CHjRL4-hbd4hbIb1czvrryGKcwMFYWCDeMDDAHM';
+  const CSV_URL  = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv`;
+
+  const map = L.map('map');
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+    maxZoom: 21
+  }).addTo(map);
+
+  // Map<treeObject, L.Marker>
+  const markers = new Map();
+
+  // ── DATA LOADING ─────────────────────────────────────────────────────────────
+  async function loadData() {
+    document.getElementById('tree-count').textContent = 'Loading…';
+
+    let text;
+    try {
+      const resp = await fetch(CSV_URL);
+      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+      text = await resp.text();
+    } catch (err) {
+      document.getElementById('tree-count').textContent = 'Failed to load data';
+      console.error('Could not fetch tree data:', err);
+      return;
+    }
+
+    const rows = parseCSV(text);
+    if (rows.length < 2) {
+      document.getElementById('tree-count').textContent = 'No data found';
+      return;
+    }
+
+    const headers = rows[0].map(h => h.trim());
+    const trees = rows.slice(1)
+      .map(row => {
+        const obj = {};
+        headers.forEach((h, i) => { obj[h] = (row[i] || '').trim(); });
+        return obj;
+      })
+      .filter(t => {
+        const lat = parseFloat(t['Latitude']);
+        const lng = parseFloat(t['Longitude']);
+        return !isNaN(lat) && !isNaN(lng);
+      });
+
+    const colourMap = buildColourMap(trees);
+    const bounds = [];
+
+    for (const tree of trees) {
+      const lat = parseFloat(tree['Latitude']);
+      const lng = parseFloat(tree['Longitude']);
+      const colour = colourMap.get(tree['Scientific name']) || '#888888';
+      const icon   = makeIcon(tree, colour);
+      const marker = L.marker([lat, lng], { icon });
+      marker.bindPopup(buildPopup(tree), { maxWidth: 320 });
+      marker.addTo(map);
+      markers.set(tree, marker);
+      bounds.push([lat, lng]);
+    }
+
+    if (bounds.length) map.fitBounds(bounds, { padding: [24, 24] });
+
+    buildFilters(trees);
+    document.getElementById('tree-count').textContent =
+      `${trees.length} tree${trees.length !== 1 ? 's' : ''} shown`;
+  }
+
+  loadData();
+  </script>
+</body>
+</html>
