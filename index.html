@@ -44,12 +44,33 @@
     }
     #panel.open { display: block; }
 
+    #panel-header {
+      position: sticky;
+      top: -12px;       /* cancel panel's 12px padding so it sticks flush to the top edge */
+      margin: -12px -12px 12px;
+      padding: 10px 12px;
+      background: white;
+      border-bottom: 1px solid #e0e0e0;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      z-index: 1;
+    }
     #tree-count {
       font-size: 12px;
       color: #555;
-      margin-bottom: 12px;
       font-weight: bold;
     }
+    #filter-reset {
+      font-size: 12px;
+      color: #2a7ae2;
+      cursor: pointer;
+      background: none;
+      border: none;
+      padding: 0;
+      text-decoration: underline;
+    }
+    #filter-reset:hover { color: #1a5ab8; }
 
     .filter-section { margin-bottom: 12px; }
     .filter-section > .filter-label {
@@ -108,7 +129,10 @@
   <button id="panel-toggle" onclick="togglePanel()">&#9668; Filters</button>
 
   <div id="panel" class="open">
-    <div id="tree-count">Loading…</div>
+    <div id="panel-header">
+      <span id="tree-count">Loading…</span>
+      <button id="filter-reset" onclick="resetFilters()">Reset</button>
+    </div>
 
     <div class="filter-section">
       <span class="filter-label">Scientific name</span>
@@ -519,6 +543,15 @@
       `${count} tree${count !== 1 ? 's' : ''} shown`;
   }
 
+  function resetFilters() {
+    document.getElementById('filter-sci').selectedIndex   = 0;
+    document.getElementById('filter-common').selectedIndex = 0;
+    document.getElementById('filter-short').selectedIndex  = 0;
+    document.querySelectorAll('.filter-tag, .filter-condition, .filter-form, #filter-info, #filter-photo')
+      .forEach(el => { el.checked = false; });
+    applyFilters();
+  }
+
   function togglePanel() {
     const panel  = document.getElementById('panel');
     const toggle = document.getElementById('panel-toggle');
@@ -606,6 +639,40 @@
   }
 
   loadData();
+
+  // ── USER LOCATION ────────────────────────────────────────────────────────────
+  if ('geolocation' in navigator) {
+    let locationDot      = null;
+    let accuracyCircle   = null;
+
+    navigator.geolocation.watchPosition(pos => {
+      const { latitude: lat, longitude: lng, accuracy } = pos.coords;
+      const latlng = [lat, lng];
+
+      if (!locationDot) {
+        accuracyCircle = L.circle(latlng, {
+          radius: accuracy,
+          color: '#4a90e2',
+          fillColor: '#4a90e2',
+          fillOpacity: 0.1,
+          weight: 1,
+          interactive: false
+        }).addTo(map);
+
+        locationDot = L.circleMarker(latlng, {
+          radius: 8,
+          color: 'white',
+          weight: 2,
+          fillColor: '#4a90e2',
+          fillOpacity: 1,
+          interactive: false
+        }).addTo(map);
+      } else {
+        locationDot.setLatLng(latlng);
+        accuracyCircle.setLatLng(latlng).setRadius(accuracy);
+      }
+    }, null, { enableHighAccuracy: true });
+  }
   </script>
 </body>
 </html>
