@@ -73,6 +73,47 @@
     }
     #filter-reset:hover { color: #1a5ab8; }
 
+    #map.add-mode { cursor: crosshair; }
+
+    #panel-footer {
+      position: sticky;
+      bottom: -12px;
+      margin: 12px -12px -12px;
+      padding: 10px 12px;
+      background: white;
+      border-top: 1px solid #e0e0e0;
+    }
+    #btn-add {
+      width: 100%;
+      padding: 7px;
+      font-size: 13px;
+      font-weight: bold;
+      border: 2px solid #4a90e2;
+      border-radius: 4px;
+      background: white;
+      color: #4a90e2;
+      cursor: pointer;
+    }
+    #btn-add:hover  { background: #eef4fd; }
+    #btn-add.active { background: #4a90e2; color: white; }
+
+    #add-toast {
+      position: absolute;
+      bottom: 60px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 2000;
+      background: rgba(0,0,0,0.75);
+      color: white;
+      font-size: 13px;
+      padding: 6px 14px;
+      border-radius: 4px;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.2s;
+    }
+    #add-toast.show { opacity: 1; }
+
     .filter-section { margin-bottom: 12px; }
     .filter-section > .filter-label {
       display: block;
@@ -116,9 +157,10 @@
     .tree-popup h4 { font-size: 16px; margin-bottom: 6px; font-style: italic; color: #1a1a1a; }
     .tree-popup .prop { color: #555; margin: 8px 0; line-height: 1.2; }
     .tree-popup .prop b { color: #1a1a1a; font-weight: 600; }
-    .tree-popup .links { margin-top: 8px; font-size: 12px; border-top: 1px solid #eee; padding-top: 6px; }
+    .tree-popup .links { margin-top: 8px; font-size: 12px; border-top: 1px solid #eee; padding-top: 6px; display: flex; justify-content: space-between; align-items: center; }
     .tree-popup .links a { color: #2a7ae2; text-decoration: none; }
     .tree-popup .links a:hover { text-decoration: underline; }
+    .tree-popup .links .feedback-link .icon { font-size: 18px; vertical-align: middle; line-height: 1; }
     .tree-popup .photos { display: flex; flex-wrap: wrap; gap: 4px; margin: 8px 0; }
     .tree-popup .photos a { display: block; flex: 1 1 calc(50% - 4px); }
     .tree-popup .photos img { width: 100%; height: 100px; object-fit: cover; border-radius: 3px; display: block; }
@@ -126,6 +168,7 @@
 </head>
 <body>
   <div id="map"></div>
+  <div id="add-toast">Copied!</div>
 
   <button id="panel-toggle" onclick="togglePanel()">&#9668; Filters</button>
 
@@ -189,6 +232,14 @@
         <input type="checkbox" id="filter-photo" onchange="applyFilters()">
         Has photo
       </label>
+      <label class="checkbox-item">
+        <input type="checkbox" id="filter-no-photo" onchange="applyFilters()">
+        Lacks photo
+      </label>
+    </div>
+
+    <div id="panel-footer">
+      <button id="btn-add" onclick="toggleAddMode()">+ Add tree location</button>
     </div>
   </div>
 
@@ -441,7 +492,9 @@
     if (tree['Wikipedia'])  links.push(`<a href="${tree['Wikipedia']}"  target="_blank" rel="noopener">Wikipedia</a>`);
     if (tree['TSO'])        links.push(`<a href="${tree['TSO']}"        target="_blank" rel="noopener">TSOL</a>`);
     if (tree['Map link'])   links.push(`<a href="${tree['Map link']}"   target="_blank" rel="noopener">Google Maps</a>`);
-    if (links.length) html += `<div class="links">${links.join(' &bull; ')}</div>`;
+    const subject = encodeURIComponent(`Feedback on tree ${tree['Ref'] || '(unknown)'}`);
+    const feedback = `<a class="feedback-link" href="mailto:info@fulhamcemeteryfriends.org.uk?subject=${subject}"><span class="icon">&#9993;</span> Feedback</a>`;
+    html += `<div class="links"><span>${links.join(' &bull; ')}</span>${feedback}</div>`;
 
     html += '</div>';
     return html;
@@ -525,7 +578,8 @@
     if (checkedConds.length && !checkedConds.includes(tree['Condition'])) return false;
     if (checkedForms.length && !checkedForms.includes(tree['Form']))      return false;
     if (infoOnly && !tree['Info label']) return false;
-    if (document.getElementById('filter-photo').checked && !tree['Photo']) return false;
+    if (document.getElementById('filter-photo').checked    &&  !tree['Photo']) return false;
+    if (document.getElementById('filter-no-photo').checked &&   tree['Photo']) return false;
     return true;
   }
 
@@ -548,7 +602,7 @@
     document.getElementById('filter-sci').selectedIndex   = 0;
     document.getElementById('filter-common').selectedIndex = 0;
     document.getElementById('filter-short').selectedIndex  = 0;
-    document.querySelectorAll('.filter-tag, .filter-condition, .filter-form, #filter-info, #filter-photo')
+    document.querySelectorAll('.filter-tag, .filter-condition, .filter-form, #filter-info, #filter-photo, #filter-no-photo')
       .forEach(el => { el.checked = false; });
     applyFilters();
   }
@@ -640,6 +694,46 @@
   }
 
   loadData();
+
+  // ── ADD MODE ─────────────────────────────────────────────────────────────────
+  let addModeActive = false;
+  let toastTimer    = null;
+
+  function toggleAddMode() {
+    addModeActive ? exitAddMode() : enterAddMode();
+  }
+
+  function enterAddMode() {
+    addModeActive = true;
+    document.getElementById('map').classList.add('add-mode');
+    document.getElementById('btn-add').classList.add('active');
+    document.getElementById('btn-add').textContent = '✕ Cancel (or press Esc)';
+  }
+
+  function exitAddMode() {
+    addModeActive = false;
+    document.getElementById('map').classList.remove('add-mode');
+    const btn = document.getElementById('btn-add');
+    btn.classList.remove('active');
+    btn.textContent = '+ Add tree location';
+  }
+
+  map.on('click', e => {
+    if (!addModeActive) return;
+    const lat = e.latlng.lat.toFixed(7);
+    const lng = e.latlng.lng.toFixed(7);
+    navigator.clipboard.writeText(`${lat}\t${lng}`).then(() => {
+      const toast = document.getElementById('add-toast');
+      toast.textContent = `Copied: ${lat}, ${lng}`;
+      toast.classList.add('show');
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => toast.classList.remove('show'), 2500);
+    });
+  });
+
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape' && addModeActive) exitAddMode();
+  });
 
   // ── USER LOCATION ────────────────────────────────────────────────────────────
   if ('geolocation' in navigator) {
