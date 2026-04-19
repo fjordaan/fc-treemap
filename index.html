@@ -30,6 +30,16 @@
     #panel-toggle:hover { background: #f4f4f4; }
     #panel-toggle.collapsed { right: 10px; }
 
+    @media (max-width: 767px) {
+      #panel-toggle {
+        top: auto;
+        bottom: max(16px, env(safe-area-inset-bottom));
+        right: 10px;
+        transition: none;
+      }
+      #panel-toggle.collapsed { right: 10px; }
+    }
+
     #panel {
       position: absolute;
       top: 0;
@@ -88,27 +98,17 @@
       #map-dim.active { display: block; }
     }
 
-    #panel-footer {
-      position: sticky;
-      bottom: -12px;
-      margin: 12px -12px -12px;
-      padding: 10px 12px;
-      background: white;
-      border-top: 1px solid #e0e0e0;
-    }
     #btn-add {
-      width: 100%;
-      padding: 7px;
-      font-size: 13px;
-      font-weight: bold;
-      border: 2px solid #4a90e2;
-      border-radius: 4px;
-      background: white;
-      color: #4a90e2;
+      font-size: 12px;
+      color: #2a7ae2;
       cursor: pointer;
+      background: none;
+      border: none;
+      padding: 0;
+      text-decoration: underline;
     }
-    #btn-add:hover  { background: #eef4fd; }
-    #btn-add.active { background: #4a90e2; color: white; }
+    #btn-add:hover  { color: #1a5ab8; }
+    #btn-add.active { color: #c0392b; }
 
     #add-toast {
       position: absolute;
@@ -263,8 +263,8 @@
       </label>
     </div>
 
-    <div id="panel-footer">
-      <button id="btn-add" onclick="toggleAddMode()">+ Add tree location</button>
+    <div class="filter-section">
+      <button id="btn-add" onclick="toggleAddMode()">Add tree location (copy coords)</button>
     </div>
   </div>
 
@@ -799,7 +799,7 @@
     addModeActive = true;
     document.getElementById('map').classList.add('add-mode');
     document.getElementById('btn-add').classList.add('active');
-    document.getElementById('btn-add').textContent = '✕ Cancel (or press Esc)';
+    document.getElementById('btn-add').textContent = 'Cancel adding (or press Esc)';
   }
 
   function exitAddMode() {
@@ -807,7 +807,7 @@
     document.getElementById('map').classList.remove('add-mode');
     const btn = document.getElementById('btn-add');
     btn.classList.remove('active');
-    btn.textContent = '+ Add tree location';
+    btn.textContent = 'Add tree location (copy coords)';
   }
 
   map.on('click', e => {
