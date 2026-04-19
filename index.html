@@ -181,7 +181,8 @@
     .tree-popup h4 { font-size: 16px; margin-bottom: 6px; font-style: italic; color: #1a1a1a; }
     .tree-popup .prop { color: #555; margin: 8px 0; line-height: 1.2; }
     .tree-popup .prop b { color: #1a1a1a; font-weight: 600; }
-    .tree-popup .links { margin-top: 8px; font-size: 12px; border-top: 1px solid #eee; padding-top: 6px; display: flex; justify-content: space-between; align-items: center; }
+    .tree-popup .links { margin-top: 8px; font-size: 12px; border-top: 1px solid #eee; padding-top: 6px; display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+    .tree-popup .links > span, .tree-popup .links .feedback-link { white-space: nowrap; }
     .tree-popup .links a { color: #2a7ae2; text-decoration: none; }
     .tree-popup .links a:hover { text-decoration: underline; }
     .tree-popup .links .feedback-link .icon { font-size: 18px; vertical-align: middle; line-height: 1; }
@@ -619,7 +620,7 @@
     const links = [];
     if (tree['FCF URL'])    links.push(`<a href="${tree['FCF URL']}"    target="_blank" rel="noopener">FCF</a>`);
     if (tree['Wikipedia'])  links.push(`<a href="${tree['Wikipedia']}"  target="_blank" rel="noopener">Wikipedia</a>`);
-    if (tree['TSO'])        links.push(`<a href="${tree['TSO']}"        target="_blank" rel="noopener">TSOL</a>`);
+    if (tree['TSO'])        links.push(`<a href="${tree['TSO']}"        target="_blank" rel="noopener">TSO</a>`);
     if (tree['Map link'])   links.push(`<a href="${tree['Map link']}"   target="_blank" rel="noopener">Google Maps</a>`);
     const subject = encodeURIComponent(`Feedback on tree ${tree['Ref'] || '(unknown)'}`);
     const feedback = `<a class="feedback-link" href="mailto:info@fulhamcemeteryfriends.org.uk?subject=${subject}"><span class="icon">&#9993;</span> Feedback</a>`;
