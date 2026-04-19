@@ -186,8 +186,96 @@
     .tree-popup .links a:hover { text-decoration: underline; }
     .tree-popup .links .feedback-link .icon { font-size: 18px; vertical-align: middle; line-height: 1; }
     .tree-popup .photos { display: flex; flex-wrap: wrap; gap: 4px; margin: 8px 0; }
-    .tree-popup .photos a { display: block; flex: 1 1 calc(50% - 4px); }
+    .tree-popup .photos a { display: block; flex: 1 1 calc(50% - 4px); cursor: zoom-in; }
     .tree-popup .photos img { width: 100%; height: 100px; object-fit: cover; border-radius: 3px; display: block; }
+
+    #lightbox {
+      display: none;
+      position: fixed;
+      inset: 0;
+      z-index: 5000;
+      background: rgba(0,0,0,0.92);
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+    }
+    #lightbox.open { display: flex; }
+    #lightbox-img {
+      max-width: 100%;
+      max-height: calc(100dvh - 80px);
+      object-fit: contain;
+      display: block;
+      border-radius: 2px;
+    }
+    @media (max-width: 767px) {
+      #lightbox-img { cursor: zoom-in; }
+      #lightbox-img.zoomed {
+        height: 100dvh;
+        max-height: 100dvh;
+        width: auto;
+        max-width: none;
+        cursor: zoom-out;
+      }
+      #lightbox.zoomed { overflow-x: auto; justify-content: flex-start; }
+    }
+    #lightbox-bar {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      padding: 12px 16px;
+      width: 100%;
+      justify-content: center;
+      box-sizing: border-box;
+    }
+    @media (max-width: 767px) {
+      #lightbox-bar {
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        padding-bottom: max(12px, env(safe-area-inset-bottom));
+        background: linear-gradient(transparent, rgba(0,0,0,0.7));
+      }
+    }
+    #lightbox-bar button, #lightbox-bar a {
+      background: none;
+      border: 1px solid rgba(255,255,255,0.4);
+      border-radius: 4px;
+      color: white;
+      font-size: 13px;
+      padding: 5px 12px;
+      cursor: pointer;
+      text-decoration: none;
+      white-space: nowrap;
+    }
+    #lightbox-bar button:hover, #lightbox-bar a:hover { background: rgba(255,255,255,0.15); }
+    #lightbox-bar .nav { font-size: 20px; padding: 3px 14px; }
+    #lightbox-bar .nav:disabled { opacity: 0.25; cursor: default; }
+    #lightbox-close-top {
+      position: absolute;
+      top: 12px;
+      right: 16px;
+      background: none;
+      border: none;
+      color: rgba(255,255,255,0.7);
+      font-size: 24px;
+      cursor: pointer;
+      line-height: 1;
+      padding: 4px;
+    }
+    #lightbox-close-top:hover { color: white; }
+    #lightbox-spinner {
+      display: none;
+      position: absolute;
+      width: 40px;
+      height: 40px;
+      border: 3px solid rgba(255,255,255,0.2);
+      border-top-color: white;
+      border-radius: 50%;
+      animation: lb-spin 0.7s linear infinite;
+    }
+    #lightbox.loading #lightbox-spinner { display: block; }
+    #lightbox.loading #lightbox-img { opacity: 0; }
+    @keyframes lb-spin { to { transform: rotate(360deg); } }
   </style>
 </head>
 <body>
@@ -265,6 +353,21 @@
 
     <div class="filter-section">
       <button id="btn-add" onclick="toggleAddMode()">Add tree location (copy coords)</button>
+    </div>
+  </div>
+
+  <div id="lightbox" onclick="handleLightboxClick(event)">
+    <button id="lightbox-close-top" onclick="closeLightbox()">&#x2715;</button>
+    <div id="lightbox-spinner"></div>
+    <img id="lightbox-img" src="" referrerpolicy="no-referrer" alt="Tree photo" onclick="toggleLightboxZoom(event)"
+         onload="document.getElementById('lightbox').classList.remove('loading')"
+         onerror="document.getElementById('lightbox').classList.remove('loading')"/>
+    <div id="lightbox-bar">
+      <button class="nav" id="lightbox-prev" onclick="stepLightbox(-1)">&#8249;</button>
+      <a id="lightbox-open" href="" target="_blank" rel="noopener" referrerpolicy="no-referrer">
+        <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-1px;margin-right:5px"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>Open in new tab
+      </a>
+      <button class="nav" id="lightbox-next" onclick="stepLightbox(1)">&#8250;</button>
     </div>
   </div>
 
@@ -489,10 +592,11 @@
     const photos = parsePhotos(tree['Photo']);
     if (photos.length) {
       html += `<div class="photos">`;
-      for (const raw of photos) {
+      const photosAttr = JSON.stringify(photos).replace(/"/g, '&quot;');
+      photos.forEach((raw, i) => {
         const thumb = googlePhotoUrl(raw, 'w280');
-        html += `<a href="${raw}" target="_blank" rel="noopener" referrerpolicy="no-referrer"><img src="${thumb}" loading="lazy" referrerpolicy="no-referrer" alt="Tree photo"/></a>`;
-      }
+        html += `<a href="#" data-photos="${photosAttr}" data-index="${i}" onclick="openLightbox(JSON.parse(this.dataset.photos), +this.dataset.index); return false;"><img src="${thumb}" loading="lazy" referrerpolicy="no-referrer" alt="Tree photo"/></a>`;
+      });
       html += `</div>`;
     }
     html += row('Common name',      tree['Common name']);
@@ -786,6 +890,66 @@
 
   loadData();
   document.getElementById('map-dim').classList.add('active'); // panel open by default
+
+  // ── LIGHTBOX ─────────────────────────────────────────────────────────────────
+  let lbPhotos = [], lbIndex = 0;
+
+  function openLightbox(photos, index) {
+    lbPhotos = photos;
+    lbIndex  = index;
+    showLightboxPhoto();
+    document.getElementById('lightbox').classList.add('open');
+  }
+
+  function showLightboxPhoto() {
+    const raw   = lbPhotos[lbIndex];
+    const large = googlePhotoUrl(raw, 'w1600');
+    const img = document.getElementById('lightbox-img');
+    img.classList.remove('zoomed');
+    document.getElementById('lightbox').classList.add('loading');
+    img.src = large;
+    document.getElementById('lightbox').classList.remove('zoomed');
+    document.getElementById('lightbox-open').href = raw;
+    document.getElementById('lightbox-prev').disabled = lbIndex === 0;
+    document.getElementById('lightbox-next').disabled = lbIndex === lbPhotos.length - 1;
+    // Hide nav buttons when there's only one photo
+    const showNav = lbPhotos.length > 1;
+    document.getElementById('lightbox-prev').style.visibility = showNav ? '' : 'hidden';
+    document.getElementById('lightbox-next').style.visibility = showNav ? '' : 'hidden';
+  }
+
+  function toggleLightboxZoom(e) {
+    e.stopPropagation();
+    const img = document.getElementById('lightbox-img');
+    const lb  = document.getElementById('lightbox');
+    const zooming = !img.classList.contains('zoomed');
+    img.classList.toggle('zoomed', zooming);
+    lb.classList.toggle('zoomed', zooming);
+  }
+
+  function stepLightbox(dir) {
+    lbIndex = Math.max(0, Math.min(lbPhotos.length - 1, lbIndex + dir));
+    showLightboxPhoto();
+  }
+
+  function closeLightbox() {
+    const img = document.getElementById('lightbox-img');
+    img.classList.remove('zoomed');
+    document.getElementById('lightbox').classList.remove('open', 'zoomed');
+    img.src = '';
+  }
+
+  function handleLightboxClick(e) {
+    // Close if clicking the backdrop (not the image or controls)
+    if (e.target === document.getElementById('lightbox')) closeLightbox();
+  }
+
+  document.addEventListener('keydown', e => {
+    if (!document.getElementById('lightbox').classList.contains('open')) return;
+    if (e.key === 'Escape')     closeLightbox();
+    if (e.key === 'ArrowLeft')  stepLightbox(-1);
+    if (e.key === 'ArrowRight') stepLightbox(1);
+  });
 
   // ── ADD MODE ─────────────────────────────────────────────────────────────────
   let addModeActive = false;
