@@ -9,7 +9,8 @@
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     html, body { height: 100%; font-family: sans-serif; }
-    #map { height: 100vh; width: 100%; }
+    #map { height: 100vh; height: 100dvh; width: 100%; }
+    .leaflet-bottom { padding-bottom: env(safe-area-inset-bottom, 0px); }
 
     #panel-toggle {
       position: absolute;
@@ -74,6 +75,18 @@
     #filter-reset:hover { color: #1a5ab8; }
 
     #map.add-mode { cursor: crosshair; }
+
+    #map-dim {
+      display: none;
+      position: absolute;
+      inset: 0;
+      z-index: 999;
+      background: rgba(0,0,0,0.25);
+      cursor: pointer;
+    }
+    @media (max-width: 767px) {
+      #map-dim.active { display: block; }
+    }
 
     #panel-footer {
       position: sticky;
@@ -179,6 +192,7 @@
 </head>
 <body>
   <div id="map"></div>
+  <div id="map-dim" onclick="togglePanel()"></div>
   <div id="add-toast">Copied!</div>
 
   <button id="panel-toggle" onclick="togglePanel()">&#9668; Filters</button>
@@ -624,6 +638,7 @@
     const open   = panel.classList.toggle('open');
     toggle.classList.toggle('collapsed', !open);
     toggle.textContent = open ? '\u25c0 Filters' : '\u25b6 Filters';
+    document.getElementById('map-dim').classList.toggle('active', open);
   }
 
   // ── MAP SETUP ────────────────────────────────────────────────────────────────
@@ -770,6 +785,7 @@
   }
 
   loadData();
+  document.getElementById('map-dim').classList.add('active'); // panel open by default
 
   // ── ADD MODE ─────────────────────────────────────────────────────────────────
   let addModeActive = false;
