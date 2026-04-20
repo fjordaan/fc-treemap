@@ -603,7 +603,7 @@
         <coordinates>
           -0.2168017,51.4806552,0
           -0.2165415,51.4796229,0
-          -0.2163646,51.4790408,0
+          -0.2163351,51.4789422,0
         </coordinates>
       </LineString>
     </Placemark>
@@ -691,7 +691,7 @@
         <tessellate>1</tessellate>
         <coordinates>
           -0.2160856,51.4796713,0
-          -0.2159696,51.4792253,0
+          -0.2159401,51.4791084,0
         </coordinates>
       </LineString>
     </Placemark>
@@ -778,17 +778,7 @@
         </coordinates>
       </Point>
     </Placemark>
-    <Placemark>
-      <name>Water point (deactivated)
-</name>
-      <description>Tap has been removed (2023 or 2024), only pipe remains</description>
-      <styleUrl>#icon-1703-757575</styleUrl>
-      <Point>
-        <coordinates>
-          -0.217383,51.4811135,0
-        </coordinates>
-      </Point>
-    </Placemark>
+    
     <Placemark>
       <name>Water point 4
 </name>
@@ -811,17 +801,7 @@
         </coordinates>
       </Point>
     </Placemark>
-    <Placemark>
-      <name>Water point (deactivated)
-</name>
-      <description>No handle, unusable</description>
-      <styleUrl>#icon-1703-757575</styleUrl>
-      <Point>
-        <coordinates>
-          -0.2132836,51.4812144,0
-        </coordinates>
-      </Point>
-    </Placemark>
+    
     <Placemark>
       <name>Water point 6 (low)
 </name>
@@ -946,6 +926,17 @@
           -0.216141,51.4796389,0
         </coordinates>
       </Point>
+    </Placemark>
+    <Placemark>
+      <name>South border path</name>
+      <styleUrl>#line-795548-6231-nodesc</styleUrl>
+      <LineString>
+        <tessellate>1</tessellate>
+        <coordinates>
+          -0.215283,51.479374,0
+          -0.216793,51.4787559,0
+        </coordinates>
+      </LineString>
     </Placemark>
   </Document>
 </kml>
