@@ -618,7 +618,7 @@
   }
 
   function kmlLineColor(styleUrl) {
-    return styleUrl.includes('795548') ? '#3a6b3a' : '#000000';
+    return styleUrl.includes('795548') ? '#387b5c' : '#000000';
   }
 
   function makeIcon(tree, colour) {
@@ -988,7 +988,7 @@
             const [lng, lat] = c.split(',').map(Number);
             return [lat, lng];
           }).filter(([lat, lng]) => !isNaN(lat) && !isNaN(lng));
-          L.polyline(coords, { color: kmlLineColor(styleUrl), weight: 3, opacity: 0.85 })
+          L.polyline(coords, { color: kmlLineColor(styleUrl), weight: 6, opacity: 0.85 })
             .bindPopup(`<b>${name}</b>`)
             .addTo(group);
         }
