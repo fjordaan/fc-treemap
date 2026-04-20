@@ -192,7 +192,35 @@
     .feedback-form { display: none; margin-top: 8px; border-top: 1px solid #eee; padding-top: 8px; }
     .feedback-form.open { display: block; }
     .feedback-form textarea { width: 100%; box-sizing: border-box; border: 1px solid #ddd; border-radius: 3px; padding: 4px 6px; font-size: 12px; resize: vertical; font-family: inherit; }
-    @media (max-width: 767px) { .feedback-form textarea { font-size: 16px; } }
+
+    #feedback-backdrop {
+      display: none;
+      position: fixed;
+      inset: 0;
+      z-index: 4000;
+      background: rgba(0,0,0,0.4);
+    }
+    #feedback-backdrop.open { display: block; }
+    #feedback-sheet {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      z-index: 4001;
+      background: white;
+      border-radius: 16px 16px 0 0;
+      padding: 12px 16px max(20px, env(safe-area-inset-bottom));
+      transform: translateY(100%);
+      transition: transform 0.3s ease;
+      box-shadow: 0 -4px 24px rgba(0,0,0,0.18);
+    }
+    #feedback-sheet.open { transform: translateY(0); }
+    #feedback-sheet-handle { width: 40px; height: 4px; background: #ddd; border-radius: 2px; margin: 0 auto 14px; }
+    #feedback-sheet-title { font-size: 14px; font-weight: 600; margin-bottom: 10px; color: #1a1a1a; font-style: italic; }
+    #feedback-sheet textarea { width: 100%; box-sizing: border-box; border: 1px solid #ddd; border-radius: 6px; padding: 8px 10px; font-size: 16px; font-family: inherit; resize: none; }
+    #feedback-sheet .feedback-actions { display: flex; align-items: center; gap: 8px; margin-top: 8px; }
+    #feedback-sheet .feedback-actions button { font-size: 13px; padding: 6px 16px; cursor: pointer; border: 1px solid #ccc; border-radius: 6px; background: #f5f5f5; }
+    #feedback-sheet .feedback-actions button:hover { background: #e8e8e8; }
     .feedback-form .feedback-actions { display: flex; align-items: center; gap: 8px; margin-top: 4px; }
     .feedback-form button { font-size: 12px; padding: 3px 10px; cursor: pointer; border: 1px solid #ccc; border-radius: 3px; background: #f5f5f5; }
     .feedback-form button:hover { background: #e8e8e8; }
@@ -365,6 +393,18 @@
 
     <div class="filter-section">
       <button id="btn-add" onclick="toggleAddMode()">Add tree location (copy coords)</button>
+    </div>
+  </div>
+
+  <div id="feedback-backdrop" onclick="closeFeedbackSheet()"></div>
+  <div id="feedback-sheet">
+    <div id="feedback-sheet-handle"></div>
+    <div id="feedback-sheet-title"></div>
+    <textarea rows="4" placeholder="Your comment about this tree…"></textarea>
+    <div class="feedback-actions">
+      <button onclick="submitFeedbackSheet()">Send</button>
+      <span class="feedback-status"></span>
+      <a id="feedback-sheet-mailto" href="#" style="margin-left:auto;font-size:11px;color:#2a7ae2;text-decoration:none;white-space:nowrap;">&#9993; Send email instead</a>
     </div>
   </div>
 
@@ -640,7 +680,7 @@
     const mailtoHref = `mailto:info@fulhamcemeteryfriends.org.uk?subject=${mailSubject}`;
     const feedback = `<a class="feedback-link" href="#" onclick="toggleFeedbackForm('${formId}'); return false;"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:4px"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>Feedback</a>`;
     html += `<div class="links"><span>${links.join(' &bull; ')}</span>${feedback}</div>`;
-    html += `<div class="feedback-form" id="${formId}" data-tree="${sciName}">
+    html += `<div class="feedback-form" id="${formId}" data-ref="${ref}" data-tree="${sciName}">
       <textarea rows="3" placeholder="Your comment about this tree…"></textarea>
       <div class="feedback-actions">
         <button onclick="submitFeedback('${ref}', this.closest('.feedback-form'))">Send</button>
@@ -978,21 +1018,8 @@
   // ── FEEDBACK FORM ────────────────────────────────────────────────────────────
   const FEEDBACK_URL = 'https://script.google.com/macros/s/AKfycby5n5Ti9g7f-Jo2iK5IiWxIjXrsupMhA-D_4Cs0_8rfxmICJRT76HT3a4_i7LFEqHg/exec';
 
-  function toggleFeedbackForm(id) {
-    const form = document.getElementById(id);
-    if (!form) return;
-    form.classList.toggle('open');
-    if (form.classList.contains('open')) form.querySelector('textarea').focus();
-  }
-
-  function submitFeedback(ref, formEl) {
-    const textarea = formEl.querySelector('textarea');
-    const status   = formEl.querySelector('.feedback-status');
-    const btn      = formEl.querySelector('button');
-    const comment  = textarea.value.trim();
-    const tree     = formEl.dataset.tree || '';
-    if (!comment) return;
-    btn.disabled   = true;
+  function doSubmitFeedback(ref, tree, comment, btn, status, textarea, onSuccess) {
+    btn.disabled = true;
     status.textContent = 'Sending…';
     fetch(FEEDBACK_URL, {
       method: 'POST',
@@ -1003,11 +1030,69 @@
       status.textContent = 'Sent — thank you!';
       textarea.value = '';
       btn.disabled = false;
+      if (onSuccess) onSuccess();
     }).catch(() => {
       status.textContent = 'Failed to send. Please try again.';
       btn.disabled = false;
     });
   }
+
+  function toggleFeedbackForm(id) {
+    const form = document.getElementById(id);
+    if (!form) return;
+    if (window.innerWidth <= 767) {
+      openFeedbackSheet(form.dataset.ref, form.dataset.tree);
+    } else {
+      form.classList.toggle('open');
+      if (form.classList.contains('open')) form.querySelector('textarea').focus();
+    }
+  }
+
+  // Desktop inline form submit
+  function submitFeedback(ref, formEl) {
+    const textarea = formEl.querySelector('textarea');
+    const status   = formEl.querySelector('.feedback-status');
+    const btn      = formEl.querySelector('button');
+    const comment  = textarea.value.trim();
+    if (!comment) return;
+    doSubmitFeedback(ref, formEl.dataset.tree || '', comment, btn, status, textarea, null);
+  }
+
+  // Mobile bottom sheet
+  function openFeedbackSheet(ref, sciName) {
+    const sheet = document.getElementById('feedback-sheet');
+    sheet.dataset.ref  = ref;
+    sheet.dataset.tree = sciName;
+    document.getElementById('feedback-sheet-title').textContent = sciName || ref;
+    sheet.querySelector('textarea').value = '';
+    sheet.querySelector('.feedback-status').textContent = '';
+    const mailSubject = encodeURIComponent(`Feedback on tree ${ref} (${sciName})`);
+    document.getElementById('feedback-sheet-mailto').href =
+      `mailto:info@fulhamcemeteryfriends.org.uk?subject=${mailSubject}`;
+    document.getElementById('feedback-backdrop').classList.add('open');
+    sheet.classList.add('open');
+    setTimeout(() => sheet.querySelector('textarea').focus(), 320);
+  }
+
+  function closeFeedbackSheet() {
+    document.getElementById('feedback-sheet').classList.remove('open');
+    document.getElementById('feedback-backdrop').classList.remove('open');
+  }
+
+  function submitFeedbackSheet() {
+    const sheet   = document.getElementById('feedback-sheet');
+    const textarea = sheet.querySelector('textarea');
+    const status  = sheet.querySelector('.feedback-status');
+    const btn     = sheet.querySelector('button');
+    const comment = textarea.value.trim();
+    if (!comment) return;
+    doSubmitFeedback(
+      sheet.dataset.ref, sheet.dataset.tree, comment, btn, status, textarea,
+      () => setTimeout(closeFeedbackSheet, 1500)
+    );
+  }
+
+  map.on('popupclose', closeFeedbackSheet);
 
   // ── ADD MODE ─────────────────────────────────────────────────────────────────
   let addModeActive = false;
