@@ -185,7 +185,7 @@
     .tree-popup .links > span, .tree-popup .links .feedback-link { white-space: nowrap; }
     .tree-popup .links a { color: #2a7ae2; text-decoration: none; }
     .tree-popup .links a:hover { text-decoration: underline; }
-    .tree-popup .links .feedback-link .icon { font-size: 18px; vertical-align: middle; line-height: 1; }
+
     .feedback-form { display: none; margin-top: 8px; border-top: 1px solid #eee; padding-top: 8px; }
     .feedback-form.open { display: block; }
     .feedback-form textarea { width: 100%; box-sizing: border-box; border: 1px solid #ddd; border-radius: 3px; padding: 4px 6px; font-size: 12px; resize: vertical; font-family: inherit; }
@@ -632,14 +632,17 @@
     if (tree['Map link'])   links.push(`<a href="${tree['Map link']}"   target="_blank" rel="noopener">Google Maps</a>`);
     const ref = tree['Ref'] || '';
     const formId = `ff-${ref.replace(/\./g, '-')}`;
-    const feedback = `<a class="feedback-link" href="#" onclick="toggleFeedbackForm('${formId}'); return false;"><span class="icon">&#9993;</span> Feedback</a>`;
-    html += `<div class="links"><span>${links.join(' &bull; ')}</span>${feedback}</div>`;
     const sciName = (tree['Scientific name'] || '').replace(/'/g, '&#39;');
+    const mailSubject = encodeURIComponent(`Feedback on tree ${ref} (${tree['Scientific name'] || ''})`);
+    const mailtoHref = `mailto:info@fulhamcemeteryfriends.org.uk?subject=${mailSubject}`;
+    const feedback = `<a class="feedback-link" href="#" onclick="toggleFeedbackForm('${formId}'); return false;"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:4px"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>Feedback</a>`;
+    html += `<div class="links"><span>${links.join(' &bull; ')}</span>${feedback}</div>`;
     html += `<div class="feedback-form" id="${formId}" data-tree="${sciName}">
       <textarea rows="3" placeholder="Your comment about this tree…"></textarea>
       <div class="feedback-actions">
         <button onclick="submitFeedback('${ref}', this.closest('.feedback-form'))">Send</button>
         <span class="feedback-status"></span>
+        <a href="${mailtoHref}" style="margin-left:auto;font-size:11px;color:#2a7ae2;text-decoration:none;white-space:nowrap;">&#9993; Send email instead</a>
       </div>
     </div>`;
 
