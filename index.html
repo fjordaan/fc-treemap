@@ -186,6 +186,13 @@
     .tree-popup .links a { color: #2a7ae2; text-decoration: none; }
     .tree-popup .links a:hover { text-decoration: underline; }
     .tree-popup .links .feedback-link .icon { font-size: 18px; vertical-align: middle; line-height: 1; }
+    .feedback-form { display: none; margin-top: 8px; border-top: 1px solid #eee; padding-top: 8px; }
+    .feedback-form.open { display: block; }
+    .feedback-form textarea { width: 100%; box-sizing: border-box; border: 1px solid #ddd; border-radius: 3px; padding: 4px 6px; font-size: 12px; resize: vertical; font-family: inherit; }
+    .feedback-form .feedback-actions { display: flex; align-items: center; gap: 8px; margin-top: 4px; }
+    .feedback-form button { font-size: 12px; padding: 3px 10px; cursor: pointer; border: 1px solid #ccc; border-radius: 3px; background: #f5f5f5; }
+    .feedback-form button:hover { background: #e8e8e8; }
+    .feedback-status { font-size: 11px; color: #555; }
     .tree-popup .photos { display: flex; flex-wrap: wrap; gap: 4px; margin: 8px 0; }
     .tree-popup .photos a { display: block; flex: 1 1 calc(50% - 4px); cursor: zoom-in; }
     .tree-popup .photos img { width: 100%; height: 100px; object-fit: cover; border-radius: 3px; display: block; }
@@ -622,9 +629,18 @@
     if (tree['Wikipedia'])  links.push(`<a href="${tree['Wikipedia']}"  target="_blank" rel="noopener">Wikipedia</a>`);
     if (tree['TSO'])        links.push(`<a href="${tree['TSO']}"        target="_blank" rel="noopener">TSO</a>`);
     if (tree['Map link'])   links.push(`<a href="${tree['Map link']}"   target="_blank" rel="noopener">Google Maps</a>`);
-    const subject = encodeURIComponent(`Feedback on tree ${tree['Ref'] || '(unknown)'}`);
-    const feedback = `<a class="feedback-link" href="mailto:info@fulhamcemeteryfriends.org.uk?subject=${subject}"><span class="icon">&#9993;</span> Feedback</a>`;
+    const ref = tree['Ref'] || '';
+    const formId = `ff-${ref.replace(/\./g, '-')}`;
+    const feedback = `<a class="feedback-link" href="#" onclick="toggleFeedbackForm('${formId}'); return false;"><span class="icon">&#9993;</span> Feedback</a>`;
     html += `<div class="links"><span>${links.join(' &bull; ')}</span>${feedback}</div>`;
+    const sciName = (tree['Scientific name'] || '').replace(/'/g, '&#39;');
+    html += `<div class="feedback-form" id="${formId}" data-tree="${sciName}">
+      <textarea rows="3" placeholder="Your comment about this tree…"></textarea>
+      <div class="feedback-actions">
+        <button onclick="submitFeedback('${ref}', this.closest('.feedback-form'))">Send</button>
+        <span class="feedback-status"></span>
+      </div>
+    </div>`;
 
     html += '</div>';
     return html;
@@ -951,6 +967,40 @@
     if (e.key === 'ArrowLeft')  stepLightbox(-1);
     if (e.key === 'ArrowRight') stepLightbox(1);
   });
+
+  // ── FEEDBACK FORM ────────────────────────────────────────────────────────────
+  const FEEDBACK_URL = 'https://script.google.com/macros/s/AKfycby5n5Ti9g7f-Jo2iK5IiWxIjXrsupMhA-D_4Cs0_8rfxmICJRT76HT3a4_i7LFEqHg/exec';
+
+  function toggleFeedbackForm(id) {
+    const form = document.getElementById(id);
+    if (!form) return;
+    form.classList.toggle('open');
+    if (form.classList.contains('open')) form.querySelector('textarea').focus();
+  }
+
+  function submitFeedback(ref, formEl) {
+    const textarea = formEl.querySelector('textarea');
+    const status   = formEl.querySelector('.feedback-status');
+    const btn      = formEl.querySelector('button');
+    const comment  = textarea.value.trim();
+    const tree     = formEl.dataset.tree || '';
+    if (!comment) return;
+    btn.disabled   = true;
+    status.textContent = 'Sending…';
+    fetch(FEEDBACK_URL, {
+      method: 'POST',
+      mode: 'no-cors',
+      headers: { 'Content-Type': 'text/plain' },
+      body: JSON.stringify({ ref, tree, comment })
+    }).then(() => {
+      status.textContent = 'Sent — thank you!';
+      textarea.value = '';
+      btn.disabled = false;
+    }).catch(() => {
+      status.textContent = 'Failed to send. Please try again.';
+      btn.disabled = false;
+    });
+  }
 
   // ── ADD MODE ─────────────────────────────────────────────────────────────────
   let addModeActive = false;
