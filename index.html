@@ -660,8 +660,7 @@
     html += row('Condition',        tree['Condition']);
     html += row('Height',           tree['Height']);
     html += row('Notes',            tree['Notes']);
-    html += row('Described',        tree['Described']);
-    html += row('Info label',       tree['Info label']);
+
 
     const tags = parseTags(tree['Tag']);
     if (tags.length) html += row('Tags', tags.join(', '));
@@ -750,6 +749,25 @@
     fillCheckboxes('filter-tags',     tagCounts,    'filter-tag');
     fillCheckboxes('filter-conditions', condCounts, 'filter-condition');
     fillCheckboxes('filter-forms',      formCounts, 'filter-form');
+
+    const nonNativeCount = trees.filter(t => {
+      const tags = (t['Tag'] || '').split(',').map(s => s.trim()).filter(Boolean);
+      return !tags.some(tag => /\bnative\b/i.test(tag));
+    }).length;
+    // Insert Non-native checkbox directly after the Native checkbox
+    const nativeCb = [...document.querySelectorAll('#filter-tags .filter-tag')]
+      .find(cb => /\bnative\b/i.test(cb.value));
+    if (nativeCb) {
+      const lbl = document.createElement('label');
+      lbl.className = 'checkbox-item';
+      const cb = document.createElement('input');
+      cb.type = 'checkbox';
+      cb.id = 'filter-non-native';
+      cb.addEventListener('change', applyFilters);
+      lbl.appendChild(cb);
+      lbl.appendChild(document.createTextNode(` Non-native (${nonNativeCount})`));
+      nativeCb.closest('label').after(lbl);
+    }
   }
 
   function matchesFilters(tree) {
@@ -773,6 +791,10 @@
     if (infoOnly && !tree['Info label']) return false;
     if (document.getElementById('filter-photo').checked    &&  !tree['Photo']) return false;
     if (document.getElementById('filter-no-photo').checked &&   tree['Photo']) return false;
+    if (document.getElementById('filter-non-native').checked) {
+      const tags = (tree['Tag'] || '').split(',').map(s => s.trim()).filter(Boolean);
+      if (tags.some(tag => /\bnative\b/i.test(tag))) return false;
+    }
     return true;
   }
 
@@ -795,7 +817,7 @@
     document.getElementById('filter-sci').selectedIndex   = 0;
     document.getElementById('filter-common').selectedIndex = 0;
     document.getElementById('filter-short').selectedIndex  = 0;
-    document.querySelectorAll('.filter-tag, .filter-condition, .filter-form, #filter-info, #filter-photo, #filter-no-photo')
+    document.querySelectorAll('.filter-tag, .filter-condition, .filter-form, #filter-info, #filter-photo, #filter-no-photo, #filter-non-native')
       .forEach(el => { el.checked = false; });
     applyFilters();
   }
