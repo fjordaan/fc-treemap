@@ -325,7 +325,7 @@
 
   <button id="panel-toggle" onclick="togglePanel()">&#9668; Filters</button>
 
-  <div id="panel" class="open">
+  <div id="panel">
     <div id="panel-header">
       <span id="tree-count">Loading…</span>
       <button id="filter-reset" onclick="resetFilters()">Reset</button>
@@ -953,7 +953,13 @@
   }
 
   loadData();
-  document.getElementById('map-dim').classList.add('active'); // panel open by default
+  // Open panel by default on desktop only
+  if (window.innerWidth > 767) {
+    const panel  = document.getElementById('panel');
+    const toggle = document.getElementById('panel-toggle');
+    panel.classList.add('open');
+    toggle.textContent = '\u25c0 Filters';
+  }
 
   // ── LIGHTBOX ─────────────────────────────────────────────────────────────────
   let lbPhotos = [], lbIndex = 0;
