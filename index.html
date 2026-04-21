@@ -23,7 +23,7 @@
       background: white;
       border: 2px solid rgba(0,0,0,0.25);
       border-radius: 4px;
-      padding: 5px 10px;
+      padding: 8px 12px;
       cursor: pointer;
       font-size: 13px;
       box-shadow: 0 1px 5px rgba(0,0,0,0.3);
@@ -103,15 +103,19 @@
 
     #btn-add {
       font-size: 12px;
-      color: #2a7ae2;
       cursor: pointer;
-      background: none;
-      border: none;
-      padding: 0;
-      text-decoration: underline;
+      background: #f5f5f5;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      padding: 5px 10px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      width: 100%;
+      box-sizing: border-box;
     }
-    #btn-add:hover  { color: #1a5ab8; }
-    #btn-add.active { color: #c0392b; }
+    #btn-add:hover  { background: #e8e8e8; }
+    #btn-add.active { background: #fdecea; border-color: #c0392b; color: #c0392b; }
 
     #add-toast {
       position: absolute;
@@ -406,7 +410,10 @@
     </div>
 
     <div class="filter-section">
-      <button id="btn-add" onclick="toggleAddMode()">Add tree location (copy coords)</button>
+      <button id="btn-add" onclick="toggleAddMode()">
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="22" y1="12" x2="18" y2="12"/><line x1="6" y1="12" x2="2" y2="12"/><line x1="12" y1="6" x2="12" y2="2"/><line x1="12" y1="22" x2="12" y2="18"/></svg>
+        Copy location coords
+      </button>
     </div>
   </div>
 
@@ -1224,14 +1231,23 @@
   let toastTimer    = null;
 
   function toggleAddMode() {
-    addModeActive ? exitAddMode() : enterAddMode();
+    addModeActive ? cancelAddMode() : enterAddMode();
   }
 
   function enterAddMode() {
     addModeActive = true;
     document.getElementById('map').classList.add('add-mode');
     document.getElementById('btn-add').classList.add('active');
-    document.getElementById('btn-add').textContent = 'Cancel adding (or press Esc)';
+    document.getElementById('btn-add').lastChild.textContent = ' Cancel (or press Esc)';
+    if (window.innerWidth <= 767) {
+      const panel = document.getElementById('panel');
+      if (panel.classList.contains('open')) togglePanel();
+    }
+    const toast = document.getElementById('add-toast');
+    toast.textContent = 'Click or tap on the map to copy coordinates to clipboard';
+    toast.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => toast.classList.remove('show'), 4000);
   }
 
   function exitAddMode() {
@@ -1239,13 +1255,33 @@
     document.getElementById('map').classList.remove('add-mode');
     const btn = document.getElementById('btn-add');
     btn.classList.remove('active');
-    btn.textContent = 'Add tree location (copy coords)';
+    btn.lastChild.textContent = ' Copy location coords';
   }
+
+  function cancelAddMode() {
+    if (addMarker) { map.removeLayer(addMarker); addMarker = null; }
+    exitAddMode();
+  }
+
+  let addMarker = null;
+
+  const addMarkerIcon = L.divIcon({
+    className: '',
+    html: `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#c0392b" stroke-width="2" stroke-linecap="round">
+      <circle cx="12" cy="12" r="4" fill="rgba(192,57,43,0.2)"/>
+      <line x1="12" y1="2" x2="12" y2="8"/><line x1="12" y1="16" x2="12" y2="22"/>
+      <line x1="2" y1="12" x2="8" y2="12"/><line x1="16" y1="12" x2="22" y2="12"/>
+    </svg>`,
+    iconSize: [24, 24],
+    iconAnchor: [12, 12]
+  });
 
   map.on('click', e => {
     if (!addModeActive) return;
     const lat = e.latlng.lat.toFixed(7);
     const lng = e.latlng.lng.toFixed(7);
+    if (addMarker) map.removeLayer(addMarker);
+    addMarker = L.marker(e.latlng, { icon: addMarkerIcon, interactive: false }).addTo(map);
     navigator.clipboard.writeText(`${lat}\t${lng}`).then(() => {
       const toast = document.getElementById('add-toast');
       toast.textContent = `Copied: ${lat}, ${lng}`;
@@ -1257,7 +1293,7 @@
   });
 
   document.addEventListener('keydown', e => {
-    if (e.key === 'Escape' && addModeActive) exitAddMode();
+    if (e.key === 'Escape' && addModeActive) cancelAddMode();
   });
 
   // ── USER LOCATION ────────────────────────────────────────────────────────────
