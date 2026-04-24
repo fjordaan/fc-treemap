@@ -186,7 +186,6 @@
     }
     .checkbox-item input { cursor: pointer; flex-shrink: 0; }
 
-    .filter-divider { border: none; border-top: 1px solid #eee; margin: 10px 0; }
 
     /* Popup styles */
     .tree-popup { font-size: 13px; line-height: 1.65; min-width: 180px; }
@@ -346,7 +345,7 @@
   <div id="map-dim" onclick="togglePanel()"></div>
   <div id="add-toast">Copied!</div>
 
-  <button id="panel-toggle" onclick="togglePanel()">&#9668; Filters</button>
+  <button id="panel-toggle" onclick="togglePanel()">&#9658; Filters</button>
 
   <div id="panel">
     <div id="panel-header">
@@ -380,8 +379,6 @@
       </select>
     </div>
 
-    <hr class="filter-divider">
-
     <div class="filter-section">
       <span class="filter-label">New trees</span>
       <div class="checkbox-group" id="filter-new-tags"></div>
@@ -402,21 +399,22 @@
       <div class="checkbox-group" id="filter-forms"></div>
     </div>
 
-    <hr class="filter-divider">
-
     <div class="filter-section">
-      <label class="checkbox-item">
-        <input type="checkbox" id="filter-info" onchange="applyFilters()">
-        Has info label
-      </label>
-      <label class="checkbox-item">
-        <input type="checkbox" id="filter-photo" onchange="applyFilters()">
-        Has photo
-      </label>
-      <label class="checkbox-item">
-        <input type="checkbox" id="filter-no-photo" onchange="applyFilters()">
-        Lacks photo
-      </label>
+      <span class="filter-label">Other</span>
+      <div class="checkbox-group">
+        <label class="checkbox-item">
+          <input type="checkbox" id="filter-info" onchange="applyFilters()">
+          Has info label
+        </label>
+        <label class="checkbox-item">
+          <input type="checkbox" id="filter-photo" onchange="applyFilters()">
+          Has photo
+        </label>
+        <label class="checkbox-item">
+          <input type="checkbox" id="filter-no-photo" onchange="applyFilters()">
+          Lacks photo
+        </label>
+      </div>
     </div>
 
     <div class="filter-section">
@@ -981,7 +979,7 @@
     const toggle = document.getElementById('panel-toggle');
     const open   = panel.classList.toggle('open');
     toggle.classList.toggle('collapsed', !open);
-    toggle.textContent = open ? '\u25c0 Filters' : '\u25b6 Filters';
+    toggle.textContent = open ? '\u25b6 Filters' : '\u25c0 Filters';
     document.getElementById('map-dim').classList.toggle('active', open);
   }
 
@@ -1181,7 +1179,7 @@
     const panel  = document.getElementById('panel');
     const toggle = document.getElementById('panel-toggle');
     panel.classList.add('open');
-    toggle.textContent = '\u25c0 Filters';
+    toggle.textContent = '\u25b6 Filters';
   }
 
   // ── LIGHTBOX ─────────────────────────────────────────────────────────────────
