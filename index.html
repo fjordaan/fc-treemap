@@ -187,6 +187,24 @@
     .checkbox-item input { cursor: pointer; flex-shrink: 0; }
 
 
+    .month-grid { display: grid; grid-template-columns: repeat(12, 1fr); margin-top: 4px; }
+    .month-btn {
+      display: flex; align-items: center; justify-content: center;
+      height: 24px; font-size: 11px; font-weight: 600; cursor: pointer;
+      border: 1px solid #ddd; border-radius: 0; background: white;
+      margin-left: -1px; user-select: none; color: #555;
+    }
+    .month-btn:first-child { margin-left: 0; border-radius: 3px 0 0 3px; }
+    .month-btn:last-child  { border-radius: 0 3px 3px 0; }
+    .month-btn:hover { background: #e8e8e8; }
+    .month-btn.current { border-color: #2a7ae2; color: #2a7ae2; z-index: 1; }
+    .month-btn.selected { background: #2a7ae2; border-color: #2a7ae2; color: white; z-index: 1; }
+    .month-btn.selected.current { background: #1a5ab8; border-color: #1a5ab8; }
+    .month-btn input { display: none; }
+
+    /* Raise popup pane above Leaflet controls (zoom, layers) which sit at z-index 1000 */
+    .leaflet-popup-pane { z-index: 1100; }
+
     /* Popup styles */
     .tree-popup { font-size: 13px; line-height: 1.65; min-width: 180px; }
     .tree-popup h4 { font-size: 16px; margin-bottom: 6px; font-style: italic; color: #1a1a1a; }
@@ -377,6 +395,11 @@
       <select id="filter-short" onchange="applyFilters()">
         <option value="">All short names</option>
       </select>
+    </div>
+
+    <div class="filter-section">
+      <span class="filter-label">Seasonal interest</span>
+      <div class="month-grid" id="filter-months"></div>
     </div>
 
     <div class="filter-section">
@@ -857,6 +880,39 @@
     }
   }
 
+  // ── SEASONAL INTEREST FILTER ─────────────────────────────────────────────────
+  const MONTHS     = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const MONTH_KEYS = ['J','F','M','A','M','J','J','A','S','O','N','D'];
+  const currentMonthIdx = new Date().getMonth();
+
+  (function buildMonthGrid() {
+    const grid = document.getElementById('filter-months');
+    MONTHS.forEach((mon, i) => {
+      const lbl = document.createElement('label');
+      lbl.className = 'month-btn' + (i === currentMonthIdx ? ' current' : '');
+      lbl.title = mon;
+      const cb = document.createElement('input');
+      cb.type = 'checkbox';
+      cb.value = mon;
+      cb.addEventListener('change', () => handleMonthFilter(cb));
+      lbl.appendChild(cb);
+      lbl.appendChild(document.createTextNode(MONTH_KEYS[i]));
+      grid.appendChild(lbl);
+    });
+  })();
+
+  function handleMonthFilter(cb) {
+    document.querySelectorAll('#filter-months input').forEach(other => {
+      if (other !== cb) { other.checked = false; other.closest('.month-btn').classList.remove('selected'); }
+    });
+    cb.closest('.month-btn').classList.toggle('selected', cb.checked);
+    applyFilters();
+  }
+
+  function getSelectedMonth() {
+    return document.querySelector('#filter-months input:checked')?.value || null;
+  }
+
   function matchesFilters(tree) {
     const sciFilter    = document.getElementById('filter-sci').value;
     const commonFilter = document.getElementById('filter-common').value;
@@ -881,6 +937,11 @@
     if (document.getElementById('filter-non-native').checked) {
       const tags = (tree['Tag'] || '').split(',').map(s => s.trim()).filter(Boolean);
       if (tags.some(tag => /\bnative\b/i.test(tag))) return false;
+    }
+    const selectedMonth = getSelectedMonth();
+    if (selectedMonth) {
+      const months = (tree['Months'] || '').split(',').map(m => m.trim());
+      if (!months.includes(selectedMonth)) return false;
     }
     return true;
   }
@@ -918,6 +979,8 @@
     if (document.getElementById('filter-photo').checked)     params.set('photo',    '1');
     if (document.getElementById('filter-no-photo').checked)  params.set('nophoto',  '1');
     if (document.getElementById('filter-non-native').checked) params.set('nonnative','1');
+    const month = getSelectedMonth();
+    if (month) params.set('month', month);
     const base = window.location.origin + window.location.pathname;
     return params.toString() ? `${base}?${params}` : base;
   }
@@ -962,6 +1025,10 @@
     if (params.get('photo')     === '1') document.getElementById('filter-photo').checked     = true;
     if (params.get('nophoto')   === '1') document.getElementById('filter-no-photo').checked  = true;
     if (params.get('nonnative') === '1') document.getElementById('filter-non-native').checked = true;
+    if (params.has('month')) {
+      const cb = document.querySelector(`#filter-months input[value="${params.get('month')}"]`);
+      if (cb) { cb.checked = true; cb.closest('.month-btn').classList.add('selected'); }
+    }
     applyFilters();
   }
 
@@ -971,6 +1038,8 @@
     document.getElementById('filter-short').selectedIndex  = 0;
     document.querySelectorAll('.filter-tag, .filter-condition, .filter-form, #filter-info, #filter-photo, #filter-no-photo, #filter-non-native')
       .forEach(el => { el.checked = false; });
+    document.querySelectorAll('#filter-months input').forEach(cb => { cb.checked = false; });
+    document.querySelectorAll('.month-btn').forEach(el => el.classList.remove('selected'));
     applyFilters();
   }
 
