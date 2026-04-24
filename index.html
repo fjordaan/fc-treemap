@@ -86,6 +86,11 @@
       text-decoration: underline;
     }
     #filter-reset:hover { color: #1a5ab8; }
+    #filter-share {
+      background: none; border: none; padding: 0; cursor: pointer;
+      color: #2a7ae2; display: flex; align-items: center;
+    }
+    #filter-share:hover { color: #1a5ab8; }
 
     #map.add-mode { cursor: crosshair; }
 
@@ -346,7 +351,12 @@
   <div id="panel">
     <div id="panel-header">
       <span id="tree-count">Loading…</span>
-      <button id="filter-reset" onclick="resetFilters()">Reset</button>
+      <span style="display:flex;align-items:center;gap:8px">
+        <button id="filter-share" onclick="copyFilterLink()" title="Copy link to current filters">
+          <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+        </button>
+        <button id="filter-reset" onclick="resetFilters()">Reset</button>
+      </span>
     </div>
 
     <div class="filter-section">
@@ -886,6 +896,63 @@
       `${count} tree${count !== 1 ? 's' : ''} shown`;
   }
 
+  function buildFilterUrl() {
+    const params = new URLSearchParams();
+    const sci   = document.getElementById('filter-sci').value;
+    const common = document.getElementById('filter-common').value;
+    const short  = document.getElementById('filter-short').value;
+    if (sci)    params.set('sci',    sci);
+    if (common) params.set('common', common);
+    if (short)  params.set('short',  short);
+    const tags  = [...document.querySelectorAll('.filter-tag:checked')].map(cb => cb.value);
+    const conds = [...document.querySelectorAll('.filter-condition:checked')].map(cb => cb.value);
+    const forms = [...document.querySelectorAll('.filter-form:checked')].map(cb => cb.value);
+    if (tags.length)  params.set('tags', tags.join(','));
+    if (conds.length) params.set('cond', conds.join(','));
+    if (forms.length) params.set('form', forms.join(','));
+    if (document.getElementById('filter-info').checked)      params.set('info',     '1');
+    if (document.getElementById('filter-photo').checked)     params.set('photo',    '1');
+    if (document.getElementById('filter-no-photo').checked)  params.set('nophoto',  '1');
+    if (document.getElementById('filter-non-native').checked) params.set('nonnative','1');
+    const base = window.location.origin + window.location.pathname;
+    return params.toString() ? `${base}?${params}` : base;
+  }
+
+  function copyFilterLink() {
+    navigator.clipboard.writeText(buildFilterUrl()).then(() => {
+      const toast = document.getElementById('add-toast');
+      toast.textContent = 'Filter link copied to clipboard';
+      toast.classList.add('show');
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => toast.classList.remove('show'), 2500);
+    });
+  }
+
+  function applyUrlFilters() {
+    const params = new URLSearchParams(window.location.search);
+    if (!params.toString()) return;
+    const sci = params.get('sci');     if (sci)    document.getElementById('filter-sci').value    = sci;
+    const common = params.get('common'); if (common) document.getElementById('filter-common').value = common;
+    const short  = params.get('short');  if (short)  document.getElementById('filter-short').value  = short;
+    if (params.has('tags')) {
+      const tags = params.get('tags').split(',');
+      document.querySelectorAll('.filter-tag').forEach(cb => { if (tags.includes(cb.value)) cb.checked = true; });
+    }
+    if (params.has('cond')) {
+      const conds = params.get('cond').split(',');
+      document.querySelectorAll('.filter-condition').forEach(cb => { if (conds.includes(cb.value)) cb.checked = true; });
+    }
+    if (params.has('form')) {
+      const forms = params.get('form').split(',');
+      document.querySelectorAll('.filter-form').forEach(cb => { if (forms.includes(cb.value)) cb.checked = true; });
+    }
+    if (params.get('info')      === '1') document.getElementById('filter-info').checked      = true;
+    if (params.get('photo')     === '1') document.getElementById('filter-photo').checked     = true;
+    if (params.get('nophoto')   === '1') document.getElementById('filter-no-photo').checked  = true;
+    if (params.get('nonnative') === '1') document.getElementById('filter-non-native').checked = true;
+    applyFilters();
+  }
+
   function resetFilters() {
     document.getElementById('filter-sci').selectedIndex   = 0;
     document.getElementById('filter-common').selectedIndex = 0;
@@ -1076,6 +1143,7 @@
     if (bounds.length) map.fitBounds(bounds, { padding: [24, 24] });
 
     buildFilters(trees);
+    applyUrlFilters();
     document.getElementById('tree-count').textContent =
       `${trees.length} tree${trees.length !== 1 ? 's' : ''} shown`;
   }
