@@ -723,7 +723,7 @@
 
     let html = `<div class="tree-popup">`;
     const treeRef = (tree['Ref'] || '').replace(/'/g, '\\\'');
-    html += `<div style="display:flex;align-items:baseline;justify-content:space-between;gap:8px;margin-bottom:6px">` +
+    html += `<div style="display:flex;align-items:center;gap:6px;margin-bottom:6px">` +
       `<h4 style="margin-bottom:0">${esc(tree['Scientific name'] || '(unknown)')}</h4>` +
       `<button onclick="copyTreeLink('${treeRef}')" title="Copy link to this tree" style="flex-shrink:0;background:none;border:none;padding:0;cursor:pointer;color:#2a7ae2;display:flex;align-items:center">` +
         `<svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>` +
