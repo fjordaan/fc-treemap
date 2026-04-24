@@ -722,7 +722,13 @@
     const ageSuffix = age !== null ? `(Age: ${age})` : '';
 
     let html = `<div class="tree-popup">`;
-    html += `<h4>${esc(tree['Scientific name'] || '(unknown)')}</h4>`;
+    const treeRef = (tree['Ref'] || '').replace(/'/g, '\\\'');
+    html += `<div style="display:flex;align-items:baseline;justify-content:space-between;gap:8px;margin-bottom:6px">` +
+      `<h4 style="margin-bottom:0">${esc(tree['Scientific name'] || '(unknown)')}</h4>` +
+      `<button onclick="copyTreeLink('${treeRef}')" title="Copy link to this tree" style="flex-shrink:0;background:none;border:none;padding:0;cursor:pointer;color:#2a7ae2;display:flex;align-items:center">` +
+        `<svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>` +
+      `</button>` +
+    `</div>`;
 
     const photos = parsePhotos(tree['Photo']);
     if (photos.length) {
@@ -918,14 +924,22 @@
     return params.toString() ? `${base}?${params}` : base;
   }
 
+  function showToast(msg) {
+    const toast = document.getElementById('add-toast');
+    toast.textContent = msg;
+    toast.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => toast.classList.remove('show'), 2500);
+  }
+
   function copyFilterLink() {
-    navigator.clipboard.writeText(buildFilterUrl()).then(() => {
-      const toast = document.getElementById('add-toast');
-      toast.textContent = 'Filter link copied to clipboard';
-      toast.classList.add('show');
-      clearTimeout(toastTimer);
-      toastTimer = setTimeout(() => toast.classList.remove('show'), 2500);
-    });
+    navigator.clipboard.writeText(buildFilterUrl()).then(() => showToast('Filter link copied to clipboard'));
+  }
+
+  function copyTreeLink(ref) {
+    const url = new URL(buildFilterUrl());
+    url.searchParams.set('ref', ref);
+    navigator.clipboard.writeText(url.toString()).then(() => showToast('Tree link copied to clipboard'));
   }
 
   function applyUrlFilters() {
@@ -1144,6 +1158,19 @@
 
     buildFilters(trees);
     applyUrlFilters();
+
+    // Open popup for a specific tree if ?ref= is in the URL
+    const refParam = new URLSearchParams(window.location.search).get('ref');
+    if (refParam) {
+      for (const [tree, marker] of markers) {
+        if (tree['Ref'] === refParam) {
+          map.setView(marker.getLatLng(), Math.max(map.getZoom(), 18));
+          marker.openPopup();
+          break;
+        }
+      }
+    }
+
     document.getElementById('tree-count').textContent =
       `${trees.length} tree${trees.length !== 1 ? 's' : ''} shown`;
   }
@@ -1313,11 +1340,9 @@
       const panel = document.getElementById('panel');
       if (panel.classList.contains('open')) togglePanel();
     }
-    const toast = document.getElementById('add-toast');
-    toast.textContent = 'Click or tap on the map to copy coordinates to clipboard';
-    toast.classList.add('show');
+    showToast('Click or tap on the map to copy coordinates to clipboard');
     clearTimeout(toastTimer);
-    toastTimer = setTimeout(() => toast.classList.remove('show'), 4000);
+    toastTimer = setTimeout(() => document.getElementById('add-toast').classList.remove('show'), 4000);
   }
 
   function exitAddMode() {
@@ -1353,11 +1378,7 @@
     if (addMarker) map.removeLayer(addMarker);
     addMarker = L.marker(e.latlng, { icon: addMarkerIcon, interactive: false }).addTo(map);
     navigator.clipboard.writeText(`${lat}\t${lng}`).then(() => {
-      const toast = document.getElementById('add-toast');
-      toast.textContent = `Copied: ${lat}, ${lng}`;
-      toast.classList.add('show');
-      clearTimeout(toastTimer);
-      toastTimer = setTimeout(() => toast.classList.remove('show'), 2500);
+      showToast(`Copied: ${lat}, ${lng}`);
       exitAddMode();
     });
   });
