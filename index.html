@@ -760,7 +760,7 @@
     if (tree['FCF URL'])    links.push(`<a href="${tree['FCF URL']}"    target="_blank" rel="noopener">FCF</a>`);
     if (tree['Wikipedia'])  links.push(`<a href="${tree['Wikipedia']}"  target="_blank" rel="noopener">Wikipedia</a>`);
     if (tree['TSO'])        links.push(`<a href="${tree['TSO']}"        target="_blank" rel="noopener">TSO</a>`);
-    if (tree['Map link'])   links.push(`<a href="${tree['Map link']}"   target="_blank" rel="noopener">Google Maps</a>`);
+    if (tree['Latitude'] && tree['Longitude']) links.push(`<a href="https://maps.google.com/?q=${tree['Latitude']},${tree['Longitude']}" target="_blank" rel="noopener">Google Maps</a>`);
     const ref = tree['Ref'] || '';
     const formId = `ff-${ref.replace(/\./g, '-')}`;
     const sciName = (tree['Scientific name'] || '').replace(/'/g, '&#39;');
