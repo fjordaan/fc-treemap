@@ -210,6 +210,7 @@
     .tree-popup h4 { font-size: 16px; margin-bottom: 6px; font-style: italic; color: #1a1a1a; }
     .tree-popup .prop { color: #555; margin: 8px 0; line-height: 1.2; }
     .tree-popup .prop b { color: #1a1a1a; font-weight: 600; }
+    .tree-popup .prop span { user-select: all; }
     .tree-popup .links { margin-top: 8px; font-size: 12px; border-top: 1px solid #eee; padding-top: 6px; display: flex; justify-content: space-between; align-items: center; gap: 12px; }
     .tree-popup .links > span, .tree-popup .links .feedback-link { white-space: nowrap; }
     .tree-popup .links a { color: #2a7ae2; text-decoration: none; }
@@ -648,18 +649,25 @@
 
   function tapKmlIcon(color) {
     return kmlDivIcon(
-      `<path d="M12 4 C8 4 6 7 6 10 C6 15 12 21 12 21 C12 21 18 15 18 10 C18 7 16 4 12 4Z" fill="${color}"/>` +
-      `<circle cx="12" cy="10" r="3" fill="rgba(255,255,255,0.6)"/>`
-    );
+      `<g stroke="white" stroke-width="1.5" paint-order="stroke">` +
+      // Handle: T-shape (crossbar + stem)
+      `<rect x="5" y="2" width="12" height="2.5" rx="1.25" fill="${color}"/>` +
+      `<rect x="9.5" y="1.5" width="3" height="4" rx="0.5" fill="${color}"/>` +
+      // Body (vertical) + spout (horizontal right) + nozzle (downward at end)
+      `<path d="M9.5 5 L12.5 5 L12.5 9.5 L21 9.5 L21 18 Q21 20 19.5 20 Q18 20 18 18 L18 12 L12.5 12 L12.5 21 Q12.5 22.5 11 22.5 Q9.5 22.5 9.5 21 Z" fill="${color}"/>` +
+      `</g>`
+    , 36, 36);
   }
 
   function benchKmlIcon() {
     return kmlDivIcon(
+      `<g stroke="white" stroke-width="1.5" paint-order="stroke">` +
       `<rect x="3" y="9" width="18" height="3" rx="1" fill="#795548"/>` +
       `<rect x="3" y="14" width="18" height="2" rx="1" fill="#795548"/>` +
       `<rect x="4" y="12" width="2.5" height="5" rx="0.5" fill="#5D4037"/>` +
-      `<rect x="17.5" y="12" width="2.5" height="5" rx="0.5" fill="#5D4037"/>`
-    );
+      `<rect x="17.5" y="12" width="2.5" height="5" rx="0.5" fill="#5D4037"/>` +
+      `</g>`
+    , 36, 36);
   }
 
   function kmlPointIcon(styleUrl) {
@@ -671,7 +679,7 @@
   }
 
   function kmlLineColor(styleUrl) {
-    return styleUrl.includes('795548') ? '#387b5c' : '#000000';
+    return styleUrl.includes('795548') ? '#3B7A5C' : '#000000';
   }
 
   function makeIcon(tree, colour) {
@@ -737,7 +745,7 @@
   function buildPopup(tree) {
     // Returns a line "Label: <b>Value</b> suffix" or '' if value is empty.
     const row = (label, value, suffix = '') =>
-      value ? `<div class="prop"><b>${esc(label)}:</b> ${esc(value)}${suffix ? ' ' + suffix : ''}</div>` : '';
+      value ? `<div class="prop"><b>${esc(label)}:</b> <span>${esc(value)}${suffix ? ' ' + suffix : ''}</span></div>` : '';
 
     const age = calcAge(tree);
     const ageSuffix = age !== null ? `(Age: ${age})` : '';
@@ -1139,7 +1147,7 @@
   const layerControl = L.control.layers(baseLayers, { 'Section layout': sectionLayer }, { position: 'bottomleft' }).addTo(map);
 
   // ── KML LAYER ────────────────────────────────────────────────────────────────
-  fetch('Paths%20and%20structures.kml')
+  fetch('Paths%20and%20structures%20(edited).kml')
     .then(r => r.text())
     .then(text => {
       const kml = new DOMParser().parseFromString(text, 'text/xml');
@@ -1160,7 +1168,7 @@
             const [lng, lat] = c.split(',').map(Number);
             return [lat, lng];
           }).filter(([lat, lng]) => !isNaN(lat) && !isNaN(lng));
-          L.polyline(coords, { color: kmlLineColor(styleUrl), weight: 6, opacity: 0.85 })
+          L.polyline(coords, { color: kmlLineColor(styleUrl), weight: 9, opacity: 0.85 })
             .bindPopup(`<b>${name}</b>`)
             .addTo(group);
         }
