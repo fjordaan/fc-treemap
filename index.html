@@ -202,8 +202,6 @@
     .month-btn.selected.current { background: #1a5ab8; border-color: #1a5ab8; }
     .month-btn input { display: none; }
 
-    /* Raise popup pane above Leaflet controls (zoom, layers) which sit at z-index 1000 */
-    .leaflet-popup-pane { z-index: 1100; }
 
     /* Tree labels (permanent tooltips shown at high zoom) */
     .tree-label {
@@ -446,6 +444,10 @@
         <label class="checkbox-item">
           <input type="checkbox" id="filter-no-photo" onchange="applyFilters()">
           Lacks photo
+        </label>
+        <label class="checkbox-item">
+          <input type="checkbox" id="filter-hide-labels" onchange="updateLabels()">
+          Always hide labels
         </label>
       </div>
     </div>
@@ -969,7 +971,9 @@
     markers.forEach((marker) => {
       if (map.hasLayer(marker) && bounds.contains(marker.getLatLng())) inView++;
     });
-    const showLabels = map.getZoom() >= 21 || inView < 30;
+    const labelThreshold = window.innerWidth <= 767 ? 10 : 40;
+    const showLabels = !document.getElementById('filter-hide-labels').checked &&
+                       (map.getZoom() >= 21 || inView < labelThreshold);
     markers.forEach((marker) => {
       if (!map.hasLayer(marker)) return;
       const tooltip = marker.getTooltip();
@@ -1014,7 +1018,8 @@
     if (document.getElementById('filter-info').checked)      params.set('info',     '1');
     if (document.getElementById('filter-photo').checked)     params.set('photo',    '1');
     if (document.getElementById('filter-no-photo').checked)  params.set('nophoto',  '1');
-    if (document.getElementById('filter-non-native').checked) params.set('nonnative','1');
+    if (document.getElementById('filter-non-native').checked)  params.set('nonnative',   '1');
+    if (document.getElementById('filter-hide-labels').checked) params.set('hidelabels', '1');
     const month = getSelectedMonth();
     if (month) params.set('month', month);
     const base = window.location.origin + window.location.pathname;
@@ -1060,7 +1065,8 @@
     if (params.get('info')      === '1') document.getElementById('filter-info').checked      = true;
     if (params.get('photo')     === '1') document.getElementById('filter-photo').checked     = true;
     if (params.get('nophoto')   === '1') document.getElementById('filter-no-photo').checked  = true;
-    if (params.get('nonnative') === '1') document.getElementById('filter-non-native').checked = true;
+    if (params.get('nonnative')   === '1') document.getElementById('filter-non-native').checked  = true;
+    if (params.get('hidelabels') === '1') document.getElementById('filter-hide-labels').checked = true;
     if (params.has('month')) {
       const cb = document.querySelector(`#filter-months input[value="${params.get('month')}"]`);
       if (cb) { cb.checked = true; cb.closest('.month-btn').classList.add('selected'); }
@@ -1072,7 +1078,7 @@
     document.getElementById('filter-sci').selectedIndex   = 0;
     document.getElementById('filter-common').selectedIndex = 0;
     document.getElementById('filter-short').selectedIndex  = 0;
-    document.querySelectorAll('.filter-tag, .filter-condition, .filter-form, #filter-info, #filter-photo, #filter-no-photo, #filter-non-native')
+    document.querySelectorAll('.filter-tag, .filter-condition, .filter-form, #filter-info, #filter-photo, #filter-no-photo, #filter-non-native, #filter-hide-labels')
       .forEach(el => { el.checked = false; });
     document.querySelectorAll('#filter-months input').forEach(cb => { cb.checked = false; });
     document.querySelectorAll('.month-btn').forEach(el => el.classList.remove('selected'));
