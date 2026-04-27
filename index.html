@@ -205,6 +205,15 @@
     /* Raise popup pane above Leaflet controls (zoom, layers) which sit at z-index 1000 */
     .leaflet-popup-pane { z-index: 1100; }
 
+    /* Tree labels (permanent tooltips shown at high zoom) */
+    .tree-label {
+      background: none; border: none; box-shadow: none; padding: 0;
+      pointer-events: none; white-space: nowrap;
+    }
+    .tree-label::before { display: none; }
+    .tree-label .lbl-sci { display: block; font-size: 12px; font-style: italic; font-weight: 600; color: #1a1a1a; text-shadow: 0 0 3px white, 0 0 3px white, 0 0 3px white; line-height: 1.3; }
+    .tree-label .lbl-com { display: block; font-size: 10px; color: #444; text-shadow: 0 0 3px white, 0 0 3px white, 0 0 3px white; line-height: 1.3; }
+
     /* Popup styles */
     .tree-popup { font-size: 13px; line-height: 1.65; min-width: 180px; }
     .tree-popup h4 { font-size: 16px; margin-bottom: 6px; font-style: italic; color: #1a1a1a; }
@@ -954,6 +963,22 @@
     return true;
   }
 
+  function updateLabels() {
+    const bounds = map.getBounds();
+    let inView = 0;
+    markers.forEach((marker) => {
+      if (map.hasLayer(marker) && bounds.contains(marker.getLatLng())) inView++;
+    });
+    const showLabels = map.getZoom() >= 21 || inView < 30;
+    markers.forEach((marker) => {
+      if (!map.hasLayer(marker)) return;
+      const tooltip = marker.getTooltip();
+      if (!tooltip) return;
+      if (showLabels && !tooltip.isOpen()) marker.openTooltip();
+      else if (!showLabels && tooltip.isOpen()) marker.closeTooltip();
+    });
+  }
+
   function applyFilters() {
     let count = 0;
     markers.forEach((marker, tree) => {
@@ -963,10 +988,13 @@
         count++;
       } else {
         if (map.hasLayer(marker)) marker.remove();
+        const tooltip = marker.getTooltip();
+        if (tooltip && tooltip.isOpen()) marker.closeTooltip();
       }
     });
     document.getElementById('tree-count').textContent =
       `${count} tree${count !== 1 ? 's' : ''} shown`;
+    updateLabels();
   }
 
   function buildFilterUrl() {
@@ -1224,12 +1252,17 @@
       const icon   = makeIcon(tree, colour);
       const marker = L.marker([lat, lng], { icon });
       marker.bindPopup(buildPopup(tree), { maxWidth: 320 });
+      const sci = tree['Scientific name'] || '';
+      const com = tree['Common name'] || '';
+      const labelHtml = `<span class="lbl-sci">${sci}</span>${com ? `<span class="lbl-com">${com}</span>` : ''}`;
+      marker.bindTooltip(labelHtml, { permanent: true, direction: 'right', className: 'tree-label', opacity: 1, offset: [8, 0] });
       marker.addTo(map);
       markers.set(tree, marker);
       bounds.push([lat, lng]);
     }
 
     if (bounds.length) map.fitBounds(bounds, { padding: [24, 24] });
+    updateLabels();
 
     buildFilters(trees);
     applyUrlFilters();
@@ -1397,6 +1430,7 @@
   }
 
   map.on('popupclose', closeFeedbackSheet);
+  map.on('zoomend moveend', updateLabels);
 
   // ── ADD MODE ─────────────────────────────────────────────────────────────────
   let addModeActive = false;
