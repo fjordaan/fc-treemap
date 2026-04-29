@@ -139,6 +139,27 @@
     }
     #add-toast.show { opacity: 1; }
 
+    #hover-label {
+      display: none;
+      position: fixed;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: white;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      padding: 8px 16px;
+      text-align: center;
+      pointer-events: none;
+      z-index: 2000;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+      white-space: nowrap;
+    }
+    #hover-label.visible { display: block; }
+    #hover-label .lbl-sci { display: block; font-size: 16px; font-style: italic; font-weight: 600; color: #1a1a1a; line-height: 1.4; }
+    #hover-label .lbl-com { display: block; font-size: 13px; color: #555; line-height: 1.4; }
+    @media (max-width: 767px) { #hover-label { display: none !important; } }
+
     .section-label {
       background: none;
       border: none;
@@ -370,6 +391,7 @@
   <div id="map"></div>
   <div id="map-dim" onclick="togglePanel()"></div>
   <div id="add-toast">Copied!</div>
+  <div id="hover-label"></div>
 
   <button id="panel-toggle" onclick="togglePanel()">&#9658; Filters</button>
 
@@ -446,8 +468,8 @@
           Lacks photo
         </label>
         <label class="checkbox-item">
-          <input type="checkbox" id="filter-hide-labels" onchange="updateLabels()">
-          Always hide labels
+          <input type="checkbox" id="filter-show-labels" onchange="updateLabels()">
+          Show labels when zoomed in
         </label>
       </div>
     </div>
@@ -972,7 +994,7 @@
       if (map.hasLayer(marker) && bounds.contains(marker.getLatLng())) inView++;
     });
     const labelThreshold = window.innerWidth <= 767 ? 10 : 40;
-    const showLabels = !document.getElementById('filter-hide-labels').checked &&
+    const showLabels = document.getElementById('filter-show-labels').checked &&
                        (map.getZoom() >= 21 || inView < labelThreshold);
     markers.forEach((marker) => {
       if (!map.hasLayer(marker)) return;
@@ -1019,7 +1041,7 @@
     if (document.getElementById('filter-photo').checked)     params.set('photo',    '1');
     if (document.getElementById('filter-no-photo').checked)  params.set('nophoto',  '1');
     if (document.getElementById('filter-non-native').checked)  params.set('nonnative',   '1');
-    if (document.getElementById('filter-hide-labels').checked) params.set('hidelabels', '1');
+    if (document.getElementById('filter-show-labels').checked) params.set('showlabels', '1');
     const month = getSelectedMonth();
     if (month) params.set('month', month);
     if (map.hasLayer(baseLayers['Satellite']))  params.set('satellite', '1');
@@ -1069,7 +1091,7 @@
     if (params.get('photo')     === '1') document.getElementById('filter-photo').checked     = true;
     if (params.get('nophoto')   === '1') document.getElementById('filter-no-photo').checked  = true;
     if (params.get('nonnative')   === '1') document.getElementById('filter-non-native').checked  = true;
-    if (params.get('hidelabels') === '1') document.getElementById('filter-hide-labels').checked = true;
+    if (params.get('showlabels') === '1') document.getElementById('filter-show-labels').checked = true;
     if (params.has('month')) {
       const cb = document.querySelector(`#filter-months input[value="${params.get('month')}"]`);
       if (cb) { cb.checked = true; cb.closest('.month-btn').classList.add('selected'); }
@@ -1084,7 +1106,7 @@
     document.getElementById('filter-sci').selectedIndex   = 0;
     document.getElementById('filter-common').selectedIndex = 0;
     document.getElementById('filter-short').selectedIndex  = 0;
-    document.querySelectorAll('.filter-tag, .filter-condition, .filter-form, #filter-info, #filter-photo, #filter-no-photo, #filter-non-native, #filter-hide-labels')
+    document.querySelectorAll('.filter-tag, .filter-condition, .filter-form, #filter-info, #filter-photo, #filter-no-photo, #filter-non-native, #filter-show-labels')
       .forEach(el => { el.checked = false; });
     document.querySelectorAll('#filter-months input').forEach(cb => { cb.checked = false; });
     document.querySelectorAll('.month-btn').forEach(el => el.classList.remove('selected'));
@@ -1271,6 +1293,14 @@
       const com = tree['Common name'] || '';
       const labelHtml = `<span class="lbl-sci">${sci}</span>${com ? `<span class="lbl-com">${com}</span>` : ''}`;
       marker.bindTooltip(labelHtml, { permanent: true, direction: 'right', className: 'tree-label', opacity: 1, offset: [8, 0] });
+      marker.on('mouseover', () => {
+        const el = document.getElementById('hover-label');
+        el.innerHTML = labelHtml;
+        el.classList.add('visible');
+      });
+      marker.on('mouseout', () => {
+        document.getElementById('hover-label').classList.remove('visible');
+      });
       marker.addTo(map);
       markers.set(tree, marker);
       bounds.push([lat, lng]);
