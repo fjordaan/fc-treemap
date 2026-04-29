@@ -1022,6 +1022,9 @@
     if (document.getElementById('filter-hide-labels').checked) params.set('hidelabels', '1');
     const month = getSelectedMonth();
     if (month) params.set('month', month);
+    if (map.hasLayer(baseLayers['Satellite']))  params.set('satellite', '1');
+    if (map.hasLayer(sectionLayer))             params.set('sections',  '1');
+    if (pathsLayer && map.hasLayer(pathsLayer)) params.set('paths',     '1');
     const base = window.location.origin + window.location.pathname;
     return params.toString() ? `${base}?${params}` : base;
   }
@@ -1071,6 +1074,9 @@
       const cb = document.querySelector(`#filter-months input[value="${params.get('month')}"]`);
       if (cb) { cb.checked = true; cb.closest('.month-btn').classList.add('selected'); }
     }
+    if (params.get('satellite') === '1') { baseLayers['Street map'].remove(); baseLayers['Satellite'].addTo(map); }
+    if (params.get('sections')  === '1') sectionLayer.addTo(map);
+    // paths=1 is handled inside the KML fetch callback (layer loads asynchronously)
     applyFilters();
   }
 
@@ -1181,11 +1187,13 @@
   const layerControl = L.control.layers(baseLayers, { 'Section layout': sectionLayer }, { position: 'bottomleft' }).addTo(map);
 
   // ── KML LAYER ────────────────────────────────────────────────────────────────
+  let pathsLayer = null;
   fetch('Paths%20and%20structures%20(edited).kml')
     .then(r => r.text())
     .then(text => {
       const kml = new DOMParser().parseFromString(text, 'text/xml');
       const group = L.layerGroup();
+      pathsLayer = group;
       kml.querySelectorAll('Placemark').forEach(pm => {
         const name      = pm.querySelector('name')?.textContent?.trim() || '';
         const styleUrl  = pm.querySelector('styleUrl')?.textContent?.trim().replace(/^#/, '') || '';
@@ -1208,6 +1216,7 @@
         }
       });
       layerControl.addOverlay(group, 'Paths &amp; structures');
+      if (new URLSearchParams(window.location.search).get('paths') === '1') group.addTo(map);
     })
     .catch(err => console.warn('KML load failed:', err));
 
