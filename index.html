@@ -43,6 +43,51 @@
       #panel-toggle.collapsed { right: 10px; }
     }
 
+    @keyframes slide-in-top {
+      0%   { transform: translateX(-50%) translateY(-56px); opacity: 0; }
+      100% { transform: translateX(-50%) translateY(0);     opacity: 1; }
+    }
+    #watering-filter {
+      position: absolute;
+      top: 10px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 1001;
+      background: #e8f4fb;
+      border: 1px solid #b0d4e8;
+      border-radius: 6px;
+      box-shadow: 0 1px 5px rgba(0,0,0,0.2);
+      font-size: 13px;
+      white-space: nowrap;
+      user-select: none;
+      animation: slide-in-top 0.5s ease-out 0.4s both;
+    }
+    #watering-filter-toggle {
+      display: flex; align-items: center; gap: 6px;
+      padding: 6px 12px;
+      background: none; border: none; cursor: pointer;
+      font-size: 13px; font-weight: 600; color: #1a4a6b;
+      width: 100%;
+    }
+    #watering-filter-toggle .arrow { font-style: normal; font-size: 10px; margin-left: 2px; }
+    #watering-filter-options {
+      display: none;
+      padding: 4px 8px 8px;
+      border-top: 1px solid #b0d4e8;
+    }
+    #watering-filter-options.open { display: block; }
+    .watering-opt {
+      display: flex; align-items: center; gap: 6px;
+      padding: 4px 4px;
+      cursor: pointer;
+      border-radius: 4px;
+    }
+    .watering-opt:hover { background: rgba(0,0,0,0.05); }
+    .watering-opt input { display: none; }
+    .watering-opt-label { color: #1a1a1a; }
+    .watering-opt-label em { font-style: normal; color: #555; }
+    .watering-opt.selected { font-weight: 600; }
+
     #panel {
       position: absolute;
       top: 0;
@@ -239,6 +284,26 @@
     .tree-popup .prop { color: #555; margin: 8px 0; line-height: 1.2; }
     .tree-popup .prop b { color: #1a1a1a; font-weight: 600; }
     .tree-popup .prop span { user-select: all; }
+    .watering-panel { background: #e8f4fb; border-radius: 4px; padding: 6px 8px; margin: 8px 0; }
+    .watering-panel .prop { margin: 4px 0; }
+    @keyframes pulse-drop {
+      0%   { transform: scale(1);   opacity: 1; }
+      50%  { transform: scale(1.5); opacity: 0.7; }
+      100% { transform: scale(1);   opacity: 1; }
+    }
+    .pulse-emoji {
+      display: inline-block;
+      animation: pulse-drop 1.4s ease-in-out infinite;
+    }
+    .watering-drop-icon {
+      background: none !important; border: none !important;
+      overflow: visible !important; white-space: nowrap;
+    }
+    .watering-drop-icon .drop {
+      font-size: 18px; line-height: 1;
+      display: inline-block;
+      animation: pulse-drop 1.4s ease-in-out infinite;
+    }
     .tree-popup .links { margin-top: 8px; font-size: 12px; border-top: 1px solid #eee; padding-top: 6px; display: flex; justify-content: space-between; align-items: center; gap: 12px; }
     .tree-popup .links > span, .tree-popup .links .feedback-link { white-space: nowrap; }
     .tree-popup .links a { color: #2a7ae2; text-decoration: none; }
@@ -392,6 +457,30 @@
   <div id="map-dim" onclick="togglePanel()"></div>
   <div id="add-toast">Copied!</div>
   <div id="hover-label"></div>
+
+  <div id="watering-filter">
+    <button id="watering-filter-toggle" onclick="toggleWateringFilter()">
+      <span class="pulse-emoji">💧</span> Tree watering status <i class="arrow">▼</i>
+    </button>
+    <div id="watering-filter-options">
+      <label class="watering-opt" onclick="selectWateringOpt(this, 'none', event)">
+        <input type="radio" name="wf" value="none">
+        <span class="watering-opt-label">Not being watered: <em>Volunteers needed!</em></span>
+      </label>
+      <label class="watering-opt" onclick="selectWateringOpt(this, '1', event)">
+        <input type="radio" name="wf" value="1">
+        <span class="watering-opt-label">💧 20 liters / week: <em>Volunteers needed!</em></span>
+      </label>
+      <label class="watering-opt" onclick="selectWateringOpt(this, '2', event)">
+        <input type="radio" name="wf" value="2">
+        <span class="watering-opt-label">💧💧 40 liters / week: <em>Almost there!</em></span>
+      </label>
+      <label class="watering-opt" onclick="selectWateringOpt(this, '3', event)">
+        <input type="radio" name="wf" value="3">
+        <span class="watering-opt-label">💧💧💧 60 liters / week: <em>Sorted!</em></span>
+      </label>
+    </div>
+  </div>
 
   <button id="panel-toggle" onclick="togglePanel()">&#9658; Filters</button>
 
@@ -810,14 +899,24 @@
     html += row('Form',             tree['Form']);
     html += row('Condition',        tree['Condition']);
     html += row('Height',           tree['Height']);
-    html += row('Watered by',       tree['Watering 2026']);
     html += row('Notes',            tree['Notes']);
-
 
     const tags = parseTags(tree['Tag']);
     if (tags.length) html += row('Tags', tags.join(', '));
     html += row('Ref',              tree['Ref']);
     html += row('FCF number',       tree['FCF number']);
+
+    if (tree['Watering 2026']) {
+      const waterers = tree['Watering 2026'].split(',').map(s => s.trim()).filter(Boolean);
+      const drops = [1,2,3].map(i =>
+        `<span style="opacity:${i <= waterers.length ? '1' : '0.2'}">💧</span>`
+      ).join('');
+      const needed = waterers.length < 3 ? `<br><i>More volunteers needed!</i>` : '';
+      html += `<div class="watering-panel">` +
+        `<div class="prop"><b>Watering status:</b> <span>${drops}${needed}</span></div>` +
+        `<div class="prop"><b>Watered by:</b> <span>${esc(tree['Watering 2026'])}</span></div>` +
+        `</div>`;
+    }
 
     const links = [];
     if (tree['FCF URL'])    links.push(`<a href="${tree['FCF URL']}"    target="_blank" rel="noopener">FCF</a>`);
@@ -870,6 +969,8 @@
 
     const fillSelect = (id, counts) => {
       const sel = document.getElementById(id);
+      const total = Object.keys(counts).length;
+      sel.options[0].textContent = `${sel.options[0].textContent} (${total})`;
       for (const [name, count] of Object.entries(counts).sort()) {
         const opt = document.createElement('option');
         opt.value = name;
@@ -956,6 +1057,7 @@
   }
 
   function matchesFilters(tree) {
+    if (wateringPanelOpen) return parseTags(tree['Tag']).some(isNewTag);
     const sciFilter    = document.getElementById('filter-sci').value;
     const commonFilter = document.getElementById('filter-common').value;
     const shortFilter  = document.getElementById('filter-short').value;
@@ -1022,6 +1124,7 @@
     document.getElementById('tree-count').textContent =
       `${count} tree${count !== 1 ? 's' : ''} shown`;
     updateLabels();
+    if (activeWateringOpt) { clearWateringOverlays(); applyWateringOverlays(); }
   }
 
   function buildFilterUrl() {
@@ -1112,6 +1215,93 @@
     document.querySelectorAll('#filter-months input').forEach(cb => { cb.checked = false; });
     document.querySelectorAll('.month-btn').forEach(el => el.classList.remove('selected'));
     applyFilters();
+  }
+
+  let activeWateringOpt = null;
+  let wateringPanelOpen = false;
+
+  function toggleWateringFilter() {
+    const opts  = document.getElementById('watering-filter-options');
+    const arrow = document.querySelector('#watering-filter-toggle .arrow');
+    wateringPanelOpen = opts.classList.toggle('open');
+    arrow.textContent = wateringPanelOpen ? '▲' : '▼';
+    if (wateringPanelOpen) {
+      const panel  = document.getElementById('panel');
+      const toggle = document.getElementById('panel-toggle');
+      if (panel.classList.contains('open')) {
+        panel.classList.remove('open');
+        toggle.classList.add('collapsed');
+        toggle.textContent = '\u25c0 Filters';
+        document.getElementById('map-dim').classList.remove('active');
+      }
+      if (pathsLayer && !map.hasLayer(pathsLayer)) pathsLayer.addTo(map);
+    }
+    if (!wateringPanelOpen) {
+      // Clear selection and overlays when collapsing
+      activeWateringOpt = null;
+      document.querySelectorAll('.watering-opt').forEach(el => {
+        el.classList.remove('selected');
+        el.querySelector('input').checked = false;
+      });
+      clearWateringOverlays();
+      if (pathsLayer && map.hasLayer(pathsLayer)) pathsLayer.remove();
+    }
+    applyFilters();
+  }
+
+  function selectWateringOpt(lbl, value, e) {
+    if (e) e.preventDefault();
+    const wasSelected = lbl.classList.contains('selected');
+    document.querySelectorAll('.watering-opt').forEach(el => {
+      el.classList.remove('selected');
+      el.querySelector('input').checked = false;
+    });
+    clearWateringOverlays();
+    if (!wasSelected) {
+      lbl.classList.add('selected');
+      lbl.querySelector('input').checked = true;
+      activeWateringOpt = value;
+      applyWateringOverlays();
+    } else {
+      activeWateringOpt = null;
+    }
+  }
+
+  function watererCount(tree) {
+    if (!tree['Watering 2026']) return 0;
+    return tree['Watering 2026'].split(',').map(s => s.trim()).filter(Boolean).length;
+  }
+
+  function matchesWateringOpt(tree) {
+    if (!activeWateringOpt) return false;
+    const count = watererCount(tree);
+    if (activeWateringOpt === 'none') return count === 0;
+    return count === parseInt(activeWateringOpt);
+  }
+
+  const waterDropMarkers = [];
+
+  function clearWateringOverlays() {
+    waterDropMarkers.forEach(m => m.remove());
+    waterDropMarkers.length = 0;
+  }
+
+  function applyWateringOverlays() {
+    const count = activeWateringOpt === 'none' ? 1 : parseInt(activeWateringOpt);
+    const drops = Array.from({length: count}, () => '<span class="drop">💧</span>').join('');
+    const iconW = count * 22;
+    const icon = L.divIcon({
+      className: 'watering-drop-icon',
+      html: drops,
+      iconSize: [iconW, 22],
+      iconAnchor: [-2, 11]    // anchor left of icon so it partially overlaps the marker
+    });
+    markers.forEach((marker, tree) => {
+      if (!map.hasLayer(marker)) return;
+      if (!matchesWateringOpt(tree)) return;
+      const m = L.marker(marker.getLatLng(), { icon, interactive: false, pane: 'waterDropPane' }).addTo(map);
+      waterDropMarkers.push(m);
+    });
   }
 
   function togglePanel() {
@@ -1206,6 +1396,9 @@
   );
 
   const map = L.map('map');
+  map.createPane('waterDropPane');
+  map.getPane('waterDropPane').style.zIndex = 620;
+  map.getPane('waterDropPane').style.pointerEvents = 'none';
   baseLayers['Street map'].addTo(map);
   const layerControl = L.control.layers(baseLayers, { 'Section layout': sectionLayer }, { position: 'bottomleft' }).addTo(map);
 
