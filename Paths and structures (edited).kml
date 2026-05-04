@@ -886,17 +886,7 @@
         </coordinates>
       </Point>
     </Placemark>
-    <Placemark>
-      <name>Storage container
-</name>
-      <description>Metal box with padlock</description>
-      <styleUrl>#icon-1603-9C27B0</styleUrl>
-      <Point>
-        <coordinates>
-          -0.2172342,51.4802098,0
-        </coordinates>
-      </Point>
-    </Placemark>
+    
     <Placemark>
       <name>Waiting room
 </name>
@@ -908,47 +898,8 @@
         </coordinates>
       </Point>
     </Placemark>
-    <Placemark>
-      <name>Lodge (private residence)
-</name>
-      <styleUrl>#icon-1603-9C27B0-nodesc</styleUrl>
-      <Point>
-        <coordinates>
-          -0.217438,51.4805356,0
-        </coordinates>
-      </Point>
-    </Placemark>
-    <Placemark>
-      <name>Chapel</name>
-      <styleUrl>#icon-1603-9C27B0-nodesc</styleUrl>
-      <Point>
-        <coordinates>
-          -0.2174483,51.4807487,0
-        </coordinates>
-      </Point>
-    </Placemark>
-    <Placemark>
-      <name>War memorial: Cross of Sacrifice
-</name>
-      <description>Erected by the Commonwealth War Graves Commission, it commemorates the dead of both world wars.</description>
-      <styleUrl>#icon-1599-9C27B0</styleUrl>
-      <Point>
-        <coordinates>
-          -0.2154835,51.4806571,0
-        </coordinates>
-      </Point>
-    </Placemark>
-    <Placemark>
-      <name><![CDATA[War plot: WWII graves & screen wall
-]]></name>
-      <description>Also a WWI memorial for 7 burials without headstones</description>
-      <styleUrl>#icon-1599-9C27B0</styleUrl>
-      <Point>
-        <coordinates>
-          -0.2158,51.4809461,0
-        </coordinates>
-      </Point>
-    </Placemark>
+    
+    
     <Placemark>
       <name>Bench</name>
       <styleUrl>#icon-1891-795548-nodesc</styleUrl>

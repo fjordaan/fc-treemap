@@ -465,7 +465,7 @@
     <div id="watering-filter-options">
       <label class="watering-opt" onclick="selectWateringOpt(this, 'none', event)">
         <input type="radio" name="wf" value="none">
-        <span class="watering-opt-label">Not being watered: <em>Volunteers needed!</em></span>
+        <span class="watering-opt-label">😢 Not being watered: <em>Volunteers needed!</em></span>
       </label>
       <label class="watering-opt" onclick="selectWateringOpt(this, '1', event)">
         <input type="radio" name="wf" value="1">
@@ -1311,6 +1311,9 @@
     toggle.classList.toggle('collapsed', !open);
     toggle.textContent = open ? '\u25b6 Filters' : '\u25c0 Filters';
     document.getElementById('map-dim').classList.toggle('active', open);
+    if (window.innerWidth <= 767) {
+      document.getElementById('watering-filter').style.display = open ? 'none' : '';
+    }
   }
 
   // ── MAP SETUP ────────────────────────────────────────────────────────────────
