@@ -309,6 +309,12 @@
     .tree-popup .links a { color: #2a7ae2; text-decoration: none; }
     .tree-popup .links a:hover { text-decoration: underline; }
 
+    .tag-pills { display: inline-flex; flex-wrap: wrap; gap: 4px; margin-left: 4px; }
+    .tag-pill {
+      display: inline-block; padding: 1px 6px; border-radius: 10px;
+      font-size: 11px; font-weight: 500; line-height: 1.5;
+      white-space: nowrap;
+    }
     .feedback-form { display: none; margin-top: 8px; border-top: 1px solid #eee; padding-top: 8px; }
     .feedback-form.open { display: block; }
     .feedback-form textarea { width: 100%; box-sizing: border-box; border: 1px solid #ddd; border-radius: 3px; padding: 4px 6px; font-size: 12px; resize: vertical; font-family: inherit; }
@@ -450,6 +456,52 @@
     #lightbox.loading #lightbox-spinner { display: block; }
     #lightbox.loading #lightbox-img { opacity: 0; }
     @keyframes lb-spin { to { transform: rotate(360deg); } }
+
+    /* ── COLOUR TOOL (dev only, activated via ?devcolours) ── */
+    #colour-tool {
+      position: absolute; top: 0; left: 0; bottom: 0; width: 320px;
+      z-index: 1002; background: white;
+      border-right: 2px solid rgba(0,0,0,0.2);
+      box-shadow: 2px 0 10px rgba(0,0,0,0.15);
+      display: flex; flex-direction: column;
+      font-size: 13px;
+    }
+    .ct-header {
+      padding: 10px 12px; flex-shrink: 0;
+      border-bottom: 1px solid #ddd;
+      display: flex; justify-content: space-between; align-items: center;
+      font-weight: 600; background: #f8f8f8;
+    }
+    .ct-header span { font-size: 14px; }
+    .ct-export {
+      font-size: 12px; padding: 4px 10px;
+      background: #1a4a6b; color: white;
+      border: none; border-radius: 3px; cursor: pointer;
+    }
+    .ct-export:hover { background: #265f87; }
+    #ct-list { overflow-y: auto; flex: 1; }
+    .ct-row {
+      display: flex; align-items: center; gap: 6px;
+      padding: 4px 10px; border-bottom: 1px solid #f0f0f0;
+    }
+    .ct-row:hover { background: #fafafa; }
+    .ct-swatch {
+      width: 14px; height: 14px; border-radius: 3px; flex-shrink: 0;
+      border: 1px solid rgba(0,0,0,0.2);
+    }
+    .ct-name {
+      flex: 1; font-style: italic; font-size: 12px;
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .ct-hex {
+      width: 66px; font-size: 11px; font-family: monospace;
+      padding: 2px 4px; border: 1px solid #ccc; border-radius: 3px;
+    }
+    .ct-picker {
+      width: 26px; height: 22px; padding: 1px 2px;
+      border: 1px solid #ccc; border-radius: 3px;
+      cursor: pointer; flex-shrink: 0;
+    }
   </style>
 </head>
 <body>
@@ -804,7 +856,89 @@
     return styleUrl.includes('795548') ? '#3B7A5C' : '#000000';
   }
 
+  // ── COLOUR TOOL ──────────────────────────────────────────────────────────────
+  const COLOUR_TOOL = new URLSearchParams(window.location.search).has('devcolours');
+  let speciesColours = {};
+  if (COLOUR_TOOL) {
+    try { speciesColours = JSON.parse(localStorage.getItem('fc-treemap-species-colours') || '{}'); } catch(e) {}
+  }
+
+  function buildColourTool(trees) {
+    const panel = document.createElement('div');
+    panel.id = 'colour-tool';
+    panel.innerHTML =
+      `<div class="ct-header"><span>🎨 Species colours</span>` +
+      `<button class="ct-export" onclick="exportSpeciesColours()">Copy JSON</button></div>` +
+      `<div id="ct-list"></div>`;
+    document.body.appendChild(panel);
+
+    const sciNames = [...new Set(
+      trees.map(t => (t['Scientific name'] || '').trim()).filter(Boolean)
+    )].sort();
+
+    const list = document.getElementById('ct-list');
+    sciNames.forEach(name => {
+      const hex = speciesColours.hasOwnProperty(name) ? speciesColours[name] : '#888888';
+      const row = document.createElement('div');
+      row.className = 'ct-row';
+      row.innerHTML =
+        `<span class="ct-swatch" style="background:${hex}"></span>` +
+        `<span class="ct-name" title="${name}">${name}</span>` +
+        `<input type="text" class="ct-hex" value="${hex}" maxlength="7" spellcheck="false">` +
+        `<input type="color" class="ct-picker" value="${hex}">`;
+
+      const swatch = row.querySelector('.ct-swatch');
+      const hexInput = row.querySelector('.ct-hex');
+      const picker = row.querySelector('.ct-picker');
+
+      picker.addEventListener('input', e => {
+        const h = e.target.value;
+        hexInput.value = h;
+        swatch.style.background = h;
+        applySpeciesColour(name, h);
+      });
+
+      hexInput.addEventListener('change', e => {
+        let h = e.target.value.trim();
+        if (!h.startsWith('#')) h = '#' + h;
+        if (/^#[0-9a-fA-F]{6}$/.test(h)) {
+          picker.value = h;
+          swatch.style.background = h;
+          applySpeciesColour(name, h);
+        } else {
+          e.target.value = speciesColours.hasOwnProperty(name) ? speciesColours[name] : '#888888';
+        }
+      });
+
+      list.appendChild(row);
+    });
+  }
+
+  function applySpeciesColour(sciName, hex) {
+    speciesColours[sciName] = hex;
+    try { localStorage.setItem('fc-treemap-species-colours', JSON.stringify(speciesColours)); } catch(e) {}
+    markers.forEach((marker, tree) => {
+      if ((tree['Scientific name'] || '').trim() === sciName) {
+        marker.setIcon(makeIcon(tree, hex));
+      }
+    });
+  }
+
+  function exportSpeciesColours() {
+    const json = JSON.stringify(speciesColours, null, 2);
+    navigator.clipboard.writeText(json).then(() => {
+      const btn = document.querySelector('.ct-export');
+      const orig = btn.textContent;
+      btn.textContent = 'Copied!';
+      setTimeout(() => btn.textContent = orig, 2000);
+    });
+  }
+
   function makeIcon(tree, colour) {
+    if (COLOUR_TOOL) {
+      const sci = (tree['Scientific name'] || '').trim();
+      colour = speciesColours.hasOwnProperty(sci) ? speciesColours[sci] : '#888888';
+    }
     const tags = parseTags(tree['Tag']);
     const condition = (tree['Condition'] || '').trim();
 
@@ -831,6 +965,17 @@
   }
 
   // ── HELPERS ──────────────────────────────────────────────────────────────────
+  function tagHue(tag) {
+    let h = 0;
+    for (let i = 0; i < tag.length; i++) h = (h * 31 + tag.charCodeAt(i)) & 0xffff;
+    return h % 360;
+  }
+
+  function tagPill(tag) {
+    const hue = tagHue(tag);
+    return `<span class="tag-pill" style="background:hsl(${hue},60%,93%);color:hsl(${hue},50%,28%)">${esc(tag)}</span>`;
+  }
+
   function parseTags(tagStr) {
     if (!tagStr) return [];
     return tagStr.split(',').map(t => t.trim()).filter(Boolean);
@@ -902,7 +1047,7 @@
     html += row('Notes',            tree['Notes']);
 
     const tags = parseTags(tree['Tag']);
-    if (tags.length) html += row('Tags', tags.join(', '));
+    if (tags.length) html += `<div class="prop"><b>Tags:</b><div class="tag-pills">${tags.map(tagPill).join('')}</div></div>`;
     html += row('Ref',              tree['Ref']);
     html += row('FCF number',       tree['FCF number']);
 
@@ -1508,6 +1653,7 @@
 
     buildFilters(trees);
     applyUrlFilters();
+    if (COLOUR_TOOL) buildColourTool(trees);
 
     // Open popup for a specific tree if ?ref= is in the URL
     const refParam = new URLSearchParams(window.location.search).get('ref');
