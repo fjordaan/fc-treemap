@@ -1433,7 +1433,8 @@
 
   function applyWateringOverlays() {
     const count = activeWateringOpt === 'none' ? 1 : parseInt(activeWateringOpt);
-    const drops = Array.from({length: count}, () => '<span class="drop">💧</span>').join('');
+    const emoji = activeWateringOpt === 'none' ? '😢' : '💧';
+    const drops = Array.from({length: count}, () => `<span class="drop">${emoji}</span>`).join('');
     const iconW = count * 22;
     const icon = L.divIcon({
       className: 'watering-drop-icon',
@@ -1552,12 +1553,27 @@
 
   // ── KML LAYER ────────────────────────────────────────────────────────────────
   let pathsLayer = null;
+  const kmlPolylines = [];
+
+  function kmlWeight(zoom) {
+    // Scales from ~2 at zoom 14 up to ~12 at zoom 21
+    return Math.max(1, Math.round((zoom - 13) * 1.5));
+  }
+
+  function updateKmlWeights() {
+    const w = kmlWeight(map.getZoom());
+    kmlPolylines.forEach(p => p.setStyle({ weight: w }));
+  }
+
+  map.on('zoomend', updateKmlWeights);
+
   fetch('Paths%20and%20structures%20(edited).kml')
     .then(r => r.text())
     .then(text => {
       const kml = new DOMParser().parseFromString(text, 'text/xml');
       const group = L.layerGroup();
       pathsLayer = group;
+      const initialWeight = kmlWeight(map.getZoom() || 18);
       kml.querySelectorAll('Placemark').forEach(pm => {
         const name      = pm.querySelector('name')?.textContent?.trim() || '';
         const styleUrl  = pm.querySelector('styleUrl')?.textContent?.trim().replace(/^#/, '') || '';
@@ -1574,9 +1590,9 @@
             const [lng, lat] = c.split(',').map(Number);
             return [lat, lng];
           }).filter(([lat, lng]) => !isNaN(lat) && !isNaN(lng));
-          L.polyline(coords, { color: kmlLineColor(styleUrl), weight: 9, opacity: 0.85 })
-            .bindPopup(`<b>${name}</b>`)
-            .addTo(group);
+          const line = L.polyline(coords, { color: kmlLineColor(styleUrl), weight: initialWeight, opacity: 0.85 });
+          kmlPolylines.push(line);
+          line.bindPopup(`<b>${name}</b>`).addTo(group);
         }
       });
       layerControl.addOverlay(group, 'Paths &amp; structures');
