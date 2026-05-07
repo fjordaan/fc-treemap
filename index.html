@@ -280,7 +280,7 @@
 
     /* Popup styles */
     .tree-popup { font-size: 13px; line-height: 1.65; min-width: 180px; }
-    .tree-popup h4 { font-size: 16px; margin-bottom: 6px; font-style: italic; color: #1a1a1a; }
+    .tree-popup h4 { font-size: 16px; margin-bottom: 6px; font-style: italic; color: #1a1a1a; user-select: all; }
     .tree-popup .prop { color: #555; margin: 8px 0; line-height: 1.2; }
     .tree-popup .prop b { color: #1a1a1a; font-weight: 600; }
     .tree-popup .prop span { user-select: all; }
@@ -1051,15 +1051,21 @@
     html += row('Ref',              tree['Ref']);
     html += row('FCF number',       tree['FCF number']);
 
-    if (tree['Watering 2026']) {
-      const waterers = tree['Watering 2026'].split(',').map(s => s.trim()).filter(Boolean);
-      const drops = [1,2,3].map(i =>
-        `<span style="opacity:${i <= waterers.length ? '1' : '0.2'}">💧</span>`
-      ).join('');
-      const needed = waterers.length < 3 ? `<br><i>More volunteers needed!</i>` : '';
+    if (tags.some(isNewTag)) {
+      const waterers = tree['Watering 2026'] ? tree['Watering 2026'].split(',').map(s => s.trim()).filter(Boolean) : [];
+      let statusHtml;
+      if (waterers.length === 0) {
+        statusHtml = `<span>😢<br><i>Not being watered: Volunteers needed!</i></span>`;
+      } else {
+        const drops = [1,2,3].map(i =>
+          `<span style="opacity:${i <= waterers.length ? '1' : '0.2'}">💧</span>`
+        ).join('');
+        const needed = waterers.length < 3 ? `<br><i>More volunteers needed!</i>` : '';
+        statusHtml = `<span>${drops}${needed}</span>`;
+      }
       html += `<div class="watering-panel">` +
-        `<div class="prop"><b>Watering status:</b> <span>${drops}${needed}</span></div>` +
-        `<div class="prop"><b>Watered by:</b> <span>${esc(tree['Watering 2026'])}</span></div>` +
+        `<div class="prop"><b>Watering status:</b> ${statusHtml}</div>` +
+        (waterers.length ? `<div class="prop"><b>Watered by:</b> <span>${esc(tree['Watering 2026'])}</span></div>` : '') +
         `</div>`;
     }
 
@@ -1153,6 +1159,24 @@
       return !tags.some(tag => /\bnative\b/i.test(tag));
     }).length;
     // Insert Non-native checkbox directly after the Native checkbox
+    const selfSownCb = [...document.querySelectorAll('#filter-tags .filter-tag')]
+      .find(cb => /\bself.sown\b/i.test(cb.value));
+    if (selfSownCb) {
+      const hideSelfSownCount = trees.filter(t => {
+        const tags = (t['Tag'] || '').split(',').map(s => s.trim()).filter(Boolean);
+        return !tags.some(tag => /\bself.sown\b/i.test(tag));
+      }).length;
+      const lbl = document.createElement('label');
+      lbl.className = 'checkbox-item';
+      const cb = document.createElement('input');
+      cb.type = 'checkbox';
+      cb.id = 'filter-hide-self-sown';
+      cb.addEventListener('change', applyFilters);
+      lbl.appendChild(cb);
+      lbl.appendChild(document.createTextNode(` Hide self-sown (${hideSelfSownCount})`));
+      selfSownCb.closest('label').after(lbl);
+    }
+
     const nativeCb = [...document.querySelectorAll('#filter-tags .filter-tag')]
       .find(cb => /\bnative\b/i.test(cb.value));
     if (nativeCb) {
@@ -1223,6 +1247,10 @@
     if (infoOnly && !tree['Info label']) return false;
     if (document.getElementById('filter-photo').checked    &&  !tree['Photo']) return false;
     if (document.getElementById('filter-no-photo').checked &&   tree['Photo']) return false;
+    if (document.getElementById('filter-hide-self-sown')?.checked) {
+      const tags = (tree['Tag'] || '').split(',').map(s => s.trim()).filter(Boolean);
+      if (tags.some(tag => /\bself.sown\b/i.test(tag))) return false;
+    }
     if (document.getElementById('filter-non-native').checked) {
       const tags = (tree['Tag'] || '').split(',').map(s => s.trim()).filter(Boolean);
       if (tags.some(tag => /\bnative\b/i.test(tag))) return false;
@@ -1289,6 +1317,7 @@
     if (document.getElementById('filter-info').checked)      params.set('info',     '1');
     if (document.getElementById('filter-photo').checked)     params.set('photo',    '1');
     if (document.getElementById('filter-no-photo').checked)  params.set('nophoto',  '1');
+    if (document.getElementById('filter-hide-self-sown')?.checked) params.set('hidesselfsown', '1');
     if (document.getElementById('filter-non-native').checked)  params.set('nonnative',   '1');
     if (document.getElementById('filter-show-labels').checked) params.set('showlabels', '1');
     const month = getSelectedMonth();
@@ -1339,6 +1368,8 @@
     if (params.get('info')      === '1') document.getElementById('filter-info').checked      = true;
     if (params.get('photo')     === '1') document.getElementById('filter-photo').checked     = true;
     if (params.get('nophoto')   === '1') document.getElementById('filter-no-photo').checked  = true;
+    const hideSelfSownEl = document.getElementById('filter-hide-self-sown');
+    if (params.get('hidesselfsown') === '1' && hideSelfSownEl) hideSelfSownEl.checked = true;
     if (params.get('nonnative')   === '1') document.getElementById('filter-non-native').checked  = true;
     if (params.get('showlabels') === '1') document.getElementById('filter-show-labels').checked = true;
     if (params.has('month')) {
@@ -1355,7 +1386,7 @@
     document.getElementById('filter-sci').selectedIndex   = 0;
     document.getElementById('filter-common').selectedIndex = 0;
     document.getElementById('filter-short').selectedIndex  = 0;
-    document.querySelectorAll('.filter-tag, .filter-condition, .filter-form, #filter-info, #filter-photo, #filter-no-photo, #filter-non-native, #filter-show-labels')
+    document.querySelectorAll('.filter-tag, .filter-condition, .filter-form, #filter-info, #filter-photo, #filter-no-photo, #filter-non-native, #filter-hide-self-sown, #filter-show-labels')
       .forEach(el => { el.checked = false; });
     document.querySelectorAll('#filter-months input').forEach(cb => { cb.checked = false; });
     document.querySelectorAll('.month-btn').forEach(el => el.classList.remove('selected'));
