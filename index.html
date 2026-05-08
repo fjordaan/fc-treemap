@@ -549,21 +549,21 @@
 
     <div class="filter-section">
       <span class="filter-label">Scientific name</span>
-      <select id="filter-sci" onchange="applyFilters()">
+      <select id="filter-sci" onchange="resetOtherDropdowns('filter-sci'); applyFilters()">
         <option value="">All species</option>
       </select>
     </div>
 
     <div class="filter-section">
       <span class="filter-label">Common name</span>
-      <select id="filter-common" onchange="applyFilters()">
+      <select id="filter-common" onchange="resetOtherDropdowns('filter-common'); applyFilters()">
         <option value="">All common names</option>
       </select>
     </div>
 
     <div class="filter-section">
       <span class="filter-label">Short name</span>
-      <select id="filter-short" onchange="applyFilters()">
+      <select id="filter-short" onchange="resetOtherDropdowns('filter-short'); applyFilters()">
         <option value="">All short names</option>
       </select>
     </div>
@@ -1223,6 +1223,12 @@
 
   function getSelectedMonth() {
     return document.querySelector('#filter-months input:checked')?.value || null;
+  }
+
+  function resetOtherDropdowns(changedId) {
+    ['filter-sci', 'filter-common', 'filter-short'].forEach(id => {
+      if (id !== changedId) document.getElementById(id).selectedIndex = 0;
+    });
   }
 
   function matchesFilters(tree) {
