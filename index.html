@@ -9,6 +9,7 @@
   <link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
   <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@yaireo/tagify/dist/tagify.css"/>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     html, body { height: 100%; font-family: sans-serif; }
@@ -18,7 +19,7 @@
     #panel-toggle {
       position: absolute;
       top: 10px;
-      right: 280px;   /* just left of the 270px panel + 10px gap */
+      right: 310px;   /* just left of the 300px panel + 10px gap */
       z-index: 1001;
       background: white;
       border: 2px solid rgba(0,0,0,0.25);
@@ -97,12 +98,15 @@
       background: white;
       border-left: 2px solid rgba(0,0,0,0.18);
       padding: 12px;
-      width: 270px;
+      width: 300px;
       overflow-y: auto;
       box-shadow: -2px 0 8px rgba(0,0,0,0.15);
       display: none;
     }
     #panel.open { display: block; }
+    @media (max-width: 767px) {
+      #panel { padding-bottom: 50px; }
+    }
 
     #panel-header {
       position: sticky;
@@ -151,21 +155,145 @@
       #map-dim.active { display: block; }
     }
 
-    #btn-add {
+    .add-tree-btns {
+      display: flex;
+      gap: 6px;
+    }
+    .add-tree-btns button, .add-tree-method-row button {
       font-size: 12px;
       cursor: pointer;
       background: #f5f5f5;
       border: 1px solid #ccc;
       border-radius: 4px;
-      padding: 5px 10px;
+      padding: 5px 8px;
       display: flex;
       align-items: center;
-      gap: 6px;
+      gap: 5px;
+      flex: 1;
+      box-sizing: border-box;
+      white-space: nowrap;
+      justify-content: center;
+    }
+    .add-tree-btns button:hover, .add-tree-method-row button:hover { background: #e8e8e8; }
+    .add-tree-btns button.active { background: #fdecea; border-color: #c0392b; color: #c0392b; }
+    #btn-copy-coords svg { flex-shrink: 0; }
+    #btn-add-tree-init { background: #e8f4ec; border-color: #5a9e7a; color: #3a6e52; }
+    #btn-add-tree-init:hover { background: #d4ecdf; }
+    .add-tree-method-row { display: none; gap: 6px; }
+    .add-tree-method-row.visible { display: flex; }
+    #btn-click-map.active { background: #fff3cd; border-color: #d4a017; color: #7a5c00; }
+    #btn-cancel-add-tree { flex: 0 0 auto; font-weight: bold; color: #888; }
+
+    /* Add tree modal */
+    #add-tree-backdrop {
+      display: none;
+      position: fixed;
+      inset: 0;
+      z-index: 3000;
+      background: rgba(0,0,0,0.4);
+    }
+    #add-tree-backdrop.open { display: block; }
+    #add-tree-modal {
+      position: fixed;
+      z-index: 3001;
+      background: white;
+      padding: 20px;
+      box-shadow: 0 4px 24px rgba(0,0,0,0.2);
+    }
+    /* Desktop: centred modal */
+    @media (min-width: 768px) {
+      #add-tree-modal {
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        border-radius: 10px;
+        width: 380px;
+        max-height: 90vh;
+        overflow-y: auto;
+      }
+    }
+    /* Mobile: bottom sheet */
+    @media (max-width: 767px) {
+      #add-tree-modal {
+        bottom: 0; left: 0; right: 0;
+        border-radius: 14px 14px 0 0;
+        max-height: 85vh;
+        overflow-y: auto;
+        transform: translateY(100%);
+        transition: transform 0.3s ease;
+        padding-bottom: 28px;
+      }
+      #add-tree-modal.open { transform: translateY(0); }
+    }
+    @media (min-width: 768px) {
+      #add-tree-modal { display: none; }
+      #add-tree-modal.open { display: block; }
+    }
+    #add-tree-handle { width: 40px; height: 4px; background: #ddd; border-radius: 2px; margin: 0 auto 16px; }
+    #add-tree-modal h3 { margin: 0 0 14px; font-size: 15px; color: #1a1a1a; display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+    #add-tree-coords-display { font-size: 11px; font-weight: 400; color: #999; }
+    #add-tree-form label { display: block; font-size: 12px; font-weight: 600; color: #555; margin-bottom: 10px; }
+    #add-tree-form label .field-hint { display: block; font-weight: 400; font-size: 11px; color: #888; margin-bottom: 2px; }
+    #add-tree-form input[type=text],
+    #add-tree-form select,
+    #add-tree-form textarea {
       width: 100%;
       box-sizing: border-box;
+      border: 1px solid #ddd;
+      border-radius: 6px;
+      padding: 7px 9px;
+      font-size: 16px; /* prevent iOS zoom */
+      font-family: inherit;
+      margin-top: 3px;
     }
-    #btn-add:hover  { background: #e8e8e8; }
-    #btn-add.active { background: #fdecea; border-color: #c0392b; color: #c0392b; }
+    #add-tree-form textarea { resize: vertical; }
+    /* Tagify integration */
+    #add-tree-form .tagify__tag { margin-block: 3px; }
+    #add-tree-form .tagify {
+      width: 100%;
+      box-sizing: border-box;
+      border: 1px solid #ddd;
+      border-radius: 6px;
+      padding: 4px 6px;
+      font-family: inherit;
+      margin-top: 3px;
+      min-height: 38px;
+      --tag-bg: hsl(140, 40%, 88%);
+      --tag-hover: hsl(140, 40%, 80%);
+      --tag-text-color: hsl(140, 50%, 28%);
+      --tag-remove-btn-color: hsl(140, 40%, 45%);
+      --tag-remove-btn-bg--hover: hsl(140, 40%, 75%);
+      --tags-border-color: #ddd;
+      --tags-focus-border-color: #5a9e7a;
+    }
+    #add-tree-form .tagify__input {
+      font-size: 16px; /* prevent iOS zoom */
+      font-family: inherit;
+    }
+    #add-tree-form .tagify__dropdown {
+      font-size: 14px;
+      font-family: inherit;
+    }
+    #add-tree-form .tagify__dropdown.tags-look .tagify__dropdown__item {
+      display: inline-flex;
+      margin: 3px;
+      border-radius: 10px;
+      padding: 2px 8px;
+      font-size: 12px;
+    }
+    .add-tree-actions { display: flex; align-items: center; gap: 8px; margin-top: 14px; }
+    #btn-add-tree-submit {
+      font-size: 13px; padding: 7px 18px; cursor: pointer;
+      border: 1px solid #5a9e7a; border-radius: 6px;
+      background: #e8f4ec; color: #3a6e52; font-weight: 600;
+    }
+    #btn-add-tree-submit:hover { background: #d4ecdf; }
+    #btn-add-tree-submit:disabled { opacity: 0.6; cursor: default; }
+    .add-tree-actions .btn-cancel-modal {
+      font-size: 12px; padding: 7px 14px; cursor: pointer;
+      border: 1px solid #ccc; border-radius: 6px; background: #f5f5f5;
+    }
+    #add-tree-status { font-size: 12px; color: #666; margin-left: auto; }
 
     #add-toast {
       position: absolute;
@@ -616,10 +744,18 @@
     </div>
 
     <div class="filter-section">
-      <button id="btn-add" onclick="toggleAddMode()">
-        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="22" y1="12" x2="18" y2="12"/><line x1="6" y1="12" x2="2" y2="12"/><line x1="12" y1="6" x2="12" y2="2"/><line x1="12" y1="22" x2="12" y2="18"/></svg>
-        Copy location coords
-      </button>
+      <div class="add-tree-btns" id="add-tree-idle-row">
+        <button id="btn-copy-coords" onclick="enterCopyMode()">
+          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="22" y1="12" x2="18" y2="12"/><line x1="6" y1="12" x2="2" y2="12"/><line x1="12" y1="6" x2="12" y2="2"/><line x1="12" y1="22" x2="12" y2="18"/></svg>
+          Copy coords
+        </button>
+        <button id="btn-add-tree-init" onclick="enterMethodSelect()">+ Add a tree</button>
+      </div>
+      <div class="add-tree-method-row" id="add-tree-method-row">
+        <button id="btn-current-location" onclick="useCurrentLocation()">&#128205; Current location</button>
+        <button id="btn-click-map" onclick="handleClickMapBtn()"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="22" y1="12" x2="18" y2="12"/><line x1="6" y1="12" x2="2" y2="12"/><line x1="12" y1="6" x2="12" y2="2"/><line x1="12" y1="22" x2="12" y2="18"/></svg> <span id="btn-click-map-label">Click on map</span></button>
+        <button id="btn-cancel-add-tree" onclick="cancelAddTree()" title="Cancel">&#10005;</button>
+      </div>
     </div>
   </div>
 
@@ -633,6 +769,34 @@
       <span class="feedback-status"></span>
       <a id="feedback-sheet-mailto" href="#" style="margin-left:auto;font-size:11px;color:#2a7ae2;text-decoration:none;white-space:nowrap;">&#9993; Send email instead</a>
     </div>
+  </div>
+
+  <div id="add-tree-backdrop" onclick="closeAddTreeModal()"></div>
+  <div id="add-tree-modal">
+    <div id="add-tree-handle"></div>
+    <h3>Add a tree <span id="add-tree-coords-display"></span></h3>
+    <form id="add-tree-form" onsubmit="submitAddTree(event)" novalidate autocomplete="off">
+      <input type="hidden" name="lat" id="add-tree-lat">
+      <input type="hidden" name="lng" id="add-tree-lng">
+      <label>Scientific name
+        <input name="sci" type="text" list="add-tree-sci-list" placeholder="e.g. Quercus robur" autocomplete="off">
+        <datalist id="add-tree-sci-list"></datalist>
+      </label>
+      <label>Common name
+        <input name="common" type="text" placeholder="e.g. English oak">
+      </label>
+      <label>Tags
+        <input name="tag" id="add-tree-tag-input" placeholder="Add tags…">
+      </label>
+      <label>Notes
+        <textarea name="notes" rows="3" placeholder="Any observations…"></textarea>
+      </label>
+      <div class="add-tree-actions">
+        <button type="button" class="btn-cancel-modal" onclick="closeAddTreeModal()">Cancel</button>
+        <span id="add-tree-status"></span>
+        <button type="submit" id="btn-add-tree-submit">Submit</button>
+      </div>
+    </form>
   </div>
 
   <div id="lightbox" onclick="handleLightboxClick(event)">
@@ -652,6 +816,7 @@
   </div>
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@yaireo/tagify/dist/tagify.min.js"></script>
   <script>
   // ── CSV PARSER ───────────────────────────────────────────────────────────────
   // Handles quoted fields (RFC 4180), CRLF and LF line endings.
@@ -1645,8 +1810,16 @@
   // Map<treeObject, L.Marker>
   const markers = new Map();
 
+  let pendingAddMarker = null; // temporary marker shown after add-tree submission
+  let tagifyInstance   = null;
+
   // ── DATA LOADING ─────────────────────────────────────────────────────────────
   async function loadData() {
+    // Clear any pending-submission marker from a previous add
+    if (pendingAddMarker) {
+      map.removeLayer(pendingAddMarker);
+      pendingAddMarker = null;
+    }
     document.getElementById('tree-count').textContent = 'Loading…';
 
     let text;
@@ -1878,44 +2051,13 @@
   map.on('popupclose', closeFeedbackSheet);
   map.on('zoomend moveend', updateLabels);
 
-  // ── ADD MODE ─────────────────────────────────────────────────────────────────
-  let addModeActive = false;
-  let toastTimer    = null;
+  // ── COPY / ADD TREE MODE ─────────────────────────────────────────────────────
+  // addTreeState: 'idle' | 'copy-mode' | 'method-select' | 'click-map-mode' | 'getting-location' | 'modal-open'
+  let addTreeState = 'idle';
+  let addMarker    = null;
+  let toastTimer   = null;
 
-  function toggleAddMode() {
-    addModeActive ? cancelAddMode() : enterAddMode();
-  }
-
-  function enterAddMode() {
-    addModeActive = true;
-    document.getElementById('map').classList.add('add-mode');
-    document.getElementById('btn-add').classList.add('active');
-    document.getElementById('btn-add').lastChild.textContent = ' Cancel (or press Esc)';
-    if (window.innerWidth <= 767) {
-      const panel = document.getElementById('panel');
-      if (panel.classList.contains('open')) togglePanel();
-    }
-    showToast('Click or tap on the map to copy coordinates to clipboard');
-    clearTimeout(toastTimer);
-    toastTimer = setTimeout(() => document.getElementById('add-toast').classList.remove('show'), 4000);
-  }
-
-  function exitAddMode() {
-    addModeActive = false;
-    document.getElementById('map').classList.remove('add-mode');
-    const btn = document.getElementById('btn-add');
-    btn.classList.remove('active');
-    btn.lastChild.textContent = ' Copy location coords';
-  }
-
-  function cancelAddMode() {
-    if (addMarker) { map.removeLayer(addMarker); addMarker = null; }
-    exitAddMode();
-  }
-
-  let addMarker = null;
-
-  const addMarkerIcon = L.divIcon({
+  const crosshairIcon = L.divIcon({
     className: '',
     html: `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#c0392b" stroke-width="2" stroke-linecap="round">
       <circle cx="12" cy="12" r="4" fill="rgba(192,57,43,0.2)"/>
@@ -1926,20 +2068,229 @@
     iconAnchor: [12, 12]
   });
 
-  map.on('click', e => {
-    if (!addModeActive) return;
-    const lat = e.latlng.lat.toFixed(7);
-    const lng = e.latlng.lng.toFixed(7);
-    if (addMarker) map.removeLayer(addMarker);
-    addMarker = L.marker(e.latlng, { icon: addMarkerIcon, interactive: false }).addTo(map);
-    navigator.clipboard.writeText(`${lat}\t${lng}`).then(() => {
-      showToast(`Copied: ${lat}, ${lng}`);
-      exitAddMode();
+  const pendingTreeIcon = L.divIcon({
+    className: '',
+    html: `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="32" viewBox="0 0 24 32">
+      <circle cx="12" cy="12" r="10" fill="rgba(90,158,122,0.3)" stroke="#5a9e7a" stroke-width="2" stroke-dasharray="4,3"/>
+      <line x1="12" y1="22" x2="12" y2="32" stroke="#5a9e7a" stroke-width="2"/>
+    </svg>`,
+    iconSize: [24, 32],
+    iconAnchor: [12, 32]
+  });
+
+  // ── Copy coords mode ──────────────────────────────────────────────────────────
+  function enterCopyMode() {
+    addTreeState = 'copy-mode';
+    document.getElementById('map').classList.add('add-mode');
+    document.getElementById('btn-copy-coords').classList.add('active');
+    if (window.innerWidth <= 767) {
+      const panel = document.getElementById('panel');
+      if (panel.classList.contains('open')) togglePanel();
+    }
+    showToast('Click or tap on the map to copy coordinates to clipboard');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => document.getElementById('add-toast').classList.remove('show'), 4000);
+  }
+
+  function exitCopyMode() {
+    addTreeState = 'idle';
+    document.getElementById('map').classList.remove('add-mode');
+    document.getElementById('btn-copy-coords').classList.remove('active');
+    if (addMarker) { map.removeLayer(addMarker); addMarker = null; }
+  }
+
+  // ── Add-tree method select ────────────────────────────────────────────────────
+  function enterMethodSelect() {
+    addTreeState = 'method-select';
+    document.getElementById('add-tree-idle-row').style.display = 'none';
+    document.getElementById('add-tree-method-row').classList.add('visible');
+    document.getElementById('btn-click-map-label').textContent = window.innerWidth <= 767 ? 'Tap on map' : 'Click on map';
+    document.getElementById('btn-click-map').classList.remove('active');
+  }
+
+  function cancelAddTree() {
+    addTreeState = 'idle';
+    document.getElementById('add-tree-idle-row').style.display = '';
+    document.getElementById('add-tree-method-row').classList.remove('visible');
+    document.getElementById('map').classList.remove('add-mode');
+    document.getElementById('btn-click-map').classList.remove('active');
+    if (addMarker) { map.removeLayer(addMarker); addMarker = null; }
+  }
+
+  // ── Click-on-map mode ────────────────────────────────────────────────────────
+  function handleClickMapBtn() {
+    if (addTreeState === 'click-map-mode') {
+      // Cancel click-map mode, go back to method-select
+      addTreeState = 'method-select';
+      document.getElementById('map').classList.remove('add-mode');
+      document.getElementById('btn-click-map').classList.remove('active');
+      document.getElementById('btn-click-map-label').textContent = window.innerWidth <= 767 ? 'Tap on map' : 'Click on map';
+      if (addMarker) { map.removeLayer(addMarker); addMarker = null; }
+      return;
+    }
+    addTreeState = 'click-map-mode';
+    document.getElementById('map').classList.add('add-mode');
+    document.getElementById('btn-click-map').classList.add('active');
+    document.getElementById('btn-click-map-label').textContent = 'Cancel';
+    if (window.innerWidth <= 767) {
+      const panel = document.getElementById('panel');
+      if (panel.classList.contains('open')) togglePanel();
+    }
+    showToast('Click or tap on the map to place the new tree');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => document.getElementById('add-toast').classList.remove('show'), 5000);
+  }
+
+  // ── Current location ─────────────────────────────────────────────────────────
+  function useCurrentLocation() {
+    if (!('geolocation' in navigator)) {
+      showToast('Geolocation not available on this device');
+      return;
+    }
+    const btn = document.getElementById('btn-current-location');
+    btn.textContent = 'Getting location…';
+    btn.disabled = true;
+    addTreeState = 'getting-location';
+    navigator.geolocation.getCurrentPosition(
+      pos => {
+        btn.textContent = '📍 Current location';
+        btn.disabled = false;
+        const lat = pos.coords.latitude.toFixed(7);
+        const lng = pos.coords.longitude.toFixed(7);
+        openAddTreeModal(lat, lng);
+      },
+      err => {
+        btn.textContent = '📍 Current location';
+        btn.disabled = false;
+        addTreeState = 'method-select';
+        showToast('Could not get location: ' + (err.message || 'permission denied'));
+        clearTimeout(toastTimer);
+        toastTimer = setTimeout(() => document.getElementById('add-toast').classList.remove('show'), 4000);
+      },
+      { enableHighAccuracy: true, timeout: 15000 }
+    );
+  }
+
+  // ── Modal open/close ─────────────────────────────────────────────────────────
+  function openAddTreeModal(lat, lng) {
+    addTreeState = 'modal-open';
+    document.getElementById('add-tree-form').reset();
+    if (tagifyInstance) tagifyInstance.removeAllTags();
+    document.getElementById('add-tree-lat').value = lat;
+    document.getElementById('add-tree-lng').value = lng;
+    document.getElementById('add-tree-coords-display').textContent = `${lat}, ${lng}`;
+    document.getElementById('add-tree-status').textContent = '';
+    document.getElementById('btn-add-tree-submit').disabled = false;
+    // Populate datalist with known species
+    const dl = document.getElementById('add-tree-sci-list');
+    if (!dl.children.length) {
+      const species = [...new Set([...markers.keys()].map(t => (t['Scientific name'] || '').trim()).filter(Boolean))].sort();
+      species.forEach(s => { const o = document.createElement('option'); o.value = s; dl.appendChild(o); });
+    }
+    // Populate tag hint and Tagify whitelist with all known tags
+    const allTags = [...new Set([...markers.keys()].flatMap(t => parseTags(t['Tag'])))].sort();
+    if (!tagifyInstance) {
+      tagifyInstance = new Tagify(document.getElementById('add-tree-tag-input'), {
+        whitelist: allTags,
+        enforceWhitelist: false,
+        dropdown: {
+          enabled: 0,
+          maxItems: 100,
+          classname: 'tags-look',
+          closeOnSelect: false,
+          highlightFirst: false
+        }
+      });
+    } else {
+      tagifyInstance.settings.whitelist = allTags;
+      tagifyInstance.removeAllTags();
+    }
+    document.getElementById('add-tree-backdrop').classList.add('open');
+    document.getElementById('add-tree-modal').classList.add('open');
+    // Hide method row (the modal is shown instead)
+    document.getElementById('add-tree-method-row').classList.remove('visible');
+    document.getElementById('add-tree-idle-row').style.display = 'none';
+    setTimeout(() => document.querySelector('#add-tree-form input[name=sci]').focus(), 350);
+  }
+
+  function closeAddTreeModal() {
+    document.getElementById('add-tree-backdrop').classList.remove('open');
+    document.getElementById('add-tree-modal').classList.remove('open');
+    document.getElementById('map').classList.remove('add-mode');
+    if (addMarker) { map.removeLayer(addMarker); addMarker = null; }
+    // Return to idle
+    addTreeState = 'idle';
+    document.getElementById('add-tree-idle-row').style.display = '';
+    document.getElementById('add-tree-method-row').classList.remove('visible');
+    document.getElementById('btn-click-map').classList.remove('active');
+    document.getElementById('btn-click-map-label').textContent = window.innerWidth <= 767 ? 'Tap on map' : 'Click on map';
+  }
+
+  // ── Submit ────────────────────────────────────────────────────────────────────
+  const ADD_TREE_URL = 'https://script.google.com/macros/s/AKfycbya_2Bf-moearHF7T98Vi6XVFh5BVocRsJV4y7aphZD3RgDT2xJikRooKgmkP8LZbdaVQ/exec';
+
+  function submitAddTree(e) {
+    e.preventDefault();
+    const form   = document.getElementById('add-tree-form');
+    const btn    = document.getElementById('btn-add-tree-submit');
+    const status = document.getElementById('add-tree-status');
+    const lat    = document.getElementById('add-tree-lat').value;
+    const lng    = document.getElementById('add-tree-lng').value;
+    const payload = {
+      lat,
+      lng,
+      sci:       form.elements['sci'].value.trim(),
+      common:    form.elements['common'].value.trim(),
+
+      tag:       tagifyInstance ? tagifyInstance.value.map(t => t.value).join(', ') : '',
+      notes:     form.elements['notes'].value.trim()
+    };
+    btn.disabled = true;
+    status.textContent = 'Submitting…';
+    fetch(ADD_TREE_URL, {
+      method: 'POST',
+      mode: 'no-cors',
+      headers: { 'Content-Type': 'text/plain' },
+      body: JSON.stringify(payload)
+    }).then(() => {
+      status.textContent = 'Submitted! Thank you.';
+      // Show a pending marker at the submitted location
+      if (pendingAddMarker) map.removeLayer(pendingAddMarker);
+      pendingAddMarker = L.marker([parseFloat(lat), parseFloat(lng)], {
+        icon: pendingTreeIcon, interactive: false
+      }).addTo(map).bindTooltip('Pending: ' + (payload.sci || 'New tree'), { permanent: false });
+      setTimeout(() => closeAddTreeModal(), 1800);
+    }).catch(() => {
+      status.textContent = 'Error submitting. Please try again.';
+      btn.disabled = false;
     });
+  }
+
+  // ── Map click handler (both copy-mode and click-map-mode) ────────────────────
+  map.on('click', e => {
+    if (addTreeState === 'copy-mode') {
+      const lat = e.latlng.lat.toFixed(7);
+      const lng = e.latlng.lng.toFixed(7);
+      if (addMarker) map.removeLayer(addMarker);
+      addMarker = L.marker(e.latlng, { icon: crosshairIcon, interactive: false }).addTo(map);
+      navigator.clipboard.writeText(`${lat}\t${lng}`).then(() => {
+        showToast(`Copied: ${lat}, ${lng}`);
+        exitCopyMode();
+      });
+    } else if (addTreeState === 'click-map-mode') {
+      const lat = e.latlng.lat.toFixed(7);
+      const lng = e.latlng.lng.toFixed(7);
+      if (addMarker) map.removeLayer(addMarker);
+      addMarker = L.marker(e.latlng, { icon: crosshairIcon, interactive: false }).addTo(map);
+      openAddTreeModal(lat, lng);
+    }
   });
 
   document.addEventListener('keydown', e => {
-    if (e.key === 'Escape' && addModeActive) cancelAddMode();
+    if (e.key !== 'Escape') return;
+    if (addTreeState === 'modal-open') { closeAddTreeModal(); return; }
+    if (addTreeState === 'copy-mode') { exitCopyMode(); return; }
+    if (addTreeState === 'click-map-mode' || addTreeState === 'method-select') { cancelAddTree(); return; }
   });
 
   // ── USER LOCATION ────────────────────────────────────────────────────────────
