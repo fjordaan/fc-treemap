@@ -247,6 +247,9 @@
       margin-top: 3px;
     }
     #add-tree-form textarea { resize: vertical; }
+    #add-tree-form input::placeholder,
+    #add-tree-form textarea::placeholder { color: #aaa; }
+    #add-tree-form .tagify { --placeholder-color: #aaa; }
     /* Tagify integration */
     #add-tree-form .tagify__tag { margin-block: 3px; }
     #add-tree-form .tagify {
@@ -269,6 +272,7 @@
     #add-tree-form .tagify__input {
       font-size: 16px; /* prevent iOS zoom */
       font-family: inherit;
+      font-weight: normal;
     }
     #add-tree-form .tagify__dropdown {
       font-size: 14px;
@@ -281,6 +285,12 @@
       padding: 2px 8px;
       font-size: 12px;
     }
+    .add-tree-year-row { display: flex; gap: 8px; }
+    .add-tree-year-row label { flex: 1; }
+    .add-tree-more-row { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; margin: 10px 0 4px; }
+    #btn-more-fields { background: none; border: none; cursor: pointer; font-size: 12px; color: #2a7ae2; padding: 0; }
+    #btn-more-fields:hover { text-decoration: underline; }
+    .add-tree-more-hint { font-size: 11px; color: #aaa; }
     .add-tree-actions { display: flex; align-items: center; gap: 8px; margin-top: 14px; }
     #btn-add-tree-submit {
       font-size: 13px; padding: 7px 18px; cursor: pointer;
@@ -864,6 +874,26 @@
       <label>Notes
         <textarea name="notes" rows="3" placeholder="Any observations…"></textarea>
       </label>
+      <div id="add-tree-extra-fields" style="display:none">
+        <div class="add-tree-year-row">
+          <label>Year planted
+            <input name="year_planted" type="text" inputmode="numeric" placeholder="e.g. 2021">
+          </label>
+          <label>Est. year planted
+            <input name="est_year_planted" type="text" inputmode="numeric" placeholder="e.g. 2015">
+          </label>
+        </div>
+        <label>Form
+          <input name="form" id="add-tree-form-input" placeholder="e.g. Standard">
+        </label>
+        <label>Condition
+          <input name="condition" id="add-tree-condition-input" placeholder="e.g. Good">
+        </label>
+      </div>
+      <div class="add-tree-more-row">
+        <button type="button" id="btn-more-fields" onclick="toggleMoreFields()">+ More fields&hellip;</button>
+        <span class="add-tree-more-hint">You can also edit the trees spreadsheet to add more data.</span>
+      </div>
       <div class="add-tree-actions">
         <button type="button" class="btn-cancel-modal" onclick="closeAddTreeModal()">Cancel</button>
         <span id="add-tree-status"></span>
@@ -1885,6 +1915,8 @@
 
   let pendingAddMarker = null; // temporary marker shown after add-tree submission
   let tagifyInstance   = null;
+  let tagifyFormField  = null;
+  let tagifyCondition  = null;
 
   // ── DATA LOADING ─────────────────────────────────────────────────────────────
   async function loadData() {
@@ -2315,7 +2347,9 @@
   function openAddTreeModal(lat, lng) {
     addTreeState = 'modal-open';
     document.getElementById('add-tree-form').reset();
-    if (tagifyInstance) tagifyInstance.removeAllTags();
+    if (tagifyInstance)   tagifyInstance.removeAllTags();
+    if (tagifyFormField)  tagifyFormField.removeAllTags();
+    if (tagifyCondition)  tagifyCondition.removeAllTags();
     document.getElementById('add-tree-lat').value = lat;
     document.getElementById('add-tree-lng').value = lng;
     document.getElementById('add-tree-coords-display').textContent = `${lat}, ${lng}`;
@@ -2327,30 +2361,61 @@
       const species = [...new Set([...markers.keys()].map(t => (t['Scientific name'] || '').trim()).filter(Boolean))].sort();
       species.forEach(s => { const o = document.createElement('option'); o.value = s; dl.appendChild(o); });
     }
-    // Populate tag hint and Tagify whitelist with all known tags
+    // Tagify — Tags
     const allTags = [...new Set([...markers.keys()].flatMap(t => parseTags(t['Tag'])))].sort();
     if (!tagifyInstance) {
       tagifyInstance = new Tagify(document.getElementById('add-tree-tag-input'), {
         whitelist: allTags,
         enforceWhitelist: false,
-        dropdown: {
-          enabled: 0,
-          maxItems: 100,
-          classname: 'tags-look',
-          closeOnSelect: false,
-          highlightFirst: false
-        }
+        dropdown: { enabled: 0, maxItems: 100, classname: 'tags-look', closeOnSelect: false, highlightFirst: false }
       });
     } else {
       tagifyInstance.settings.whitelist = allTags;
       tagifyInstance.removeAllTags();
     }
+    // Tagify — Form (single value)
+    const allForms = [...new Set([...markers.keys()].map(t => (t['Form'] || '').trim()).filter(Boolean))].sort();
+    if (!tagifyFormField) {
+      tagifyFormField = new Tagify(document.getElementById('add-tree-form-input'), {
+        whitelist: allForms,
+        enforceWhitelist: false,
+        maxTags: 1,
+        dropdown: { enabled: 0, maxItems: 50, classname: 'tags-look', closeOnSelect: true, highlightFirst: false }
+      });
+    } else {
+      tagifyFormField.settings.whitelist = allForms;
+      tagifyFormField.removeAllTags();
+    }
+    // Tagify — Condition (single value)
+    const allConditions = [...new Set([...markers.keys()].map(t => (t['Condition'] || '').trim()).filter(Boolean))].sort();
+    if (!tagifyCondition) {
+      tagifyCondition = new Tagify(document.getElementById('add-tree-condition-input'), {
+        whitelist: allConditions,
+        enforceWhitelist: false,
+        maxTags: 1,
+        dropdown: { enabled: 0, maxItems: 20, classname: 'tags-look', closeOnSelect: true, highlightFirst: false }
+      });
+    } else {
+      tagifyCondition.settings.whitelist = allConditions;
+      tagifyCondition.removeAllTags();
+    }
+    // Collapse extra fields on open
+    document.getElementById('add-tree-extra-fields').style.display = 'none';
+    document.getElementById('btn-more-fields').textContent = '+ More fields\u2026';
     document.getElementById('add-tree-backdrop').classList.add('open');
     document.getElementById('add-tree-modal').classList.add('open');
     // Hide method row (the modal is shown instead)
     document.getElementById('add-tree-method-row').classList.remove('visible');
     document.getElementById('add-tree-idle-row').style.display = 'none';
     setTimeout(() => document.querySelector('#add-tree-form input[name=sci]').focus(), 350);
+  }
+
+  function toggleMoreFields() {
+    const extra = document.getElementById('add-tree-extra-fields');
+    const btn   = document.getElementById('btn-more-fields');
+    const open  = extra.style.display === 'none';
+    extra.style.display = open ? '' : 'none';
+    btn.textContent = open ? '\u2212 Less fields\u2026' : '+ More fields\u2026';
   }
 
   function closeAddTreeModal() {
@@ -2382,8 +2447,12 @@
       sci:       form.elements['sci'].value.trim(),
       common:    form.elements['common'].value.trim(),
 
-      tag:       tagifyInstance ? tagifyInstance.value.map(t => t.value).join(', ') : '',
-      notes:     form.elements['notes'].value.trim()
+      tag:              tagifyInstance  ? tagifyInstance.value.map(t => t.value).join(', ')  : '',
+      notes:            form.elements['notes'].value.trim(),
+      year_planted:     form.elements['year_planted'].value.trim(),
+      est_year_planted: form.elements['est_year_planted'].value.trim(),
+      form_field:       tagifyFormField  ? (tagifyFormField.value[0]  || {}).value || '' : '',
+      condition:        tagifyCondition  ? (tagifyCondition.value[0]  || {}).value || '' : ''
     };
     btn.disabled = true;
     status.textContent = 'Submitting…';

@@ -19,13 +19,16 @@ function doPost(e) {
     const newRow = new Array(headers.length).fill('');
 
     // Map submitted fields to column names — adjust column names to match your sheet exactly
-    if (col('Latitude')        >= 0) newRow[col('Latitude')]        = data.lat    || '';
-    if (col('Longitude')       >= 0) newRow[col('Longitude')]       = data.lng    || '';
-    if (col('Scientific name') >= 0) newRow[col('Scientific name')] = data.sci    || '';
-    if (col('Common name')     >= 0) newRow[col('Common name')]     = data.common || '';
-    if (col('Condition')       >= 0) newRow[col('Condition')]       = data.condition || '';
-    if (col('Tag')             >= 0) newRow[col('Tag')]             = data.tag    || '';
-    if (col('Notes')           >= 0) newRow[col('Notes')]           = data.notes  || '';
+    if (col('Latitude')           >= 0) newRow[col('Latitude')]           = data.lat              || '';
+    if (col('Longitude')          >= 0) newRow[col('Longitude')]          = data.lng              || '';
+    if (col('Scientific name')    >= 0) newRow[col('Scientific name')]    = data.sci              || '';
+    if (col('Common name')        >= 0) newRow[col('Common name')]        = data.common           || '';
+    if (col('Tag')                >= 0) newRow[col('Tag')]                = data.tag              || '';
+    if (col('Notes')              >= 0) newRow[col('Notes')]              = data.notes            || '';
+    if (col('Year planted')       >= 0) newRow[col('Year planted')]       = data.year_planted     || '';
+    if (col('Est. year planted')  >= 0) newRow[col('Est. year planted')]  = data.est_year_planted || '';
+    if (col('Form')               >= 0) newRow[col('Form')]               = data.form_field       || '';
+    if (col('Condition')          >= 0) newRow[col('Condition')]          = data.condition        || '';
 
     // Append the row
     sheet.appendRow(newRow);
