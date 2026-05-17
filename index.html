@@ -295,6 +295,60 @@
     }
     #add-tree-status { font-size: 12px; color: #666; margin-left: auto; }
 
+    /* ── Install banner ──────────────────────────────────────────────────────── */
+    .install-banner {
+      position: fixed;
+      bottom: 0; left: 0; right: 0;
+      z-index: 4000;
+      animation: slideUp 0.3s ease-out;
+    }
+    @keyframes slideUp {
+      from { transform: translateY(100%); }
+      to   { transform: translateY(0); }
+    }
+    .install-banner-content {
+      background: #D6E8F0;
+      padding: 20px 16px;
+      border-top: 3px solid #1D4556;
+    }
+    .install-banner-title {
+      font-size: 18px; font-weight: 700; color: #1D4556; margin-bottom: 4px;
+    }
+    .install-banner-text {
+      font-size: 14px; line-height: 1.4; color: #1D4556; margin-bottom: 0;
+    }
+    .install-banner-reason {
+      display: none; font-size: 14px; line-height: 1.4; color: #1D4556;
+      margin: 12px 0 0; padding: 0 0 0 20px; list-style: disc;
+    }
+    .install-banner-reason.visible { display: block; }
+    .install-banner-reason li { margin-bottom: 8px; }
+    .install-banner-reason li:last-child { margin-bottom: 0; }
+    .install-banner-actions {
+      display: flex; align-items: center; justify-content: space-between; margin-top: 16px;
+    }
+    .install-banner-actions-right {
+      display: flex; align-items: center; gap: 16px;
+    }
+    .install-banner-why {
+      font-size: 14px; font-weight: 600; color: #1D4556; background: none; border: none; cursor: pointer; padding: 0;
+    }
+    .install-banner-dismiss {
+      font-size: 14px; font-weight: 600; color: #1D4556; opacity: 0.6;
+      background: none; border: none; cursor: pointer; padding: 0;
+    }
+    .install-banner-btn {
+      display: flex; align-items: center; gap: 4px;
+      height: 36px; padding: 0 16px; border-radius: 18px;
+      background: #3B7A5C; color: white;
+      font-size: 14px; font-weight: 700; border: none; cursor: pointer;
+    }
+    .install-banner-ios-instructions {
+      display: flex; align-items: center; gap: 8px;
+      font-size: 14px; line-height: 1.4; color: #1D4556;
+    }
+    .install-banner-ios-instructions svg { flex-shrink: 0; }
+
     #add-toast {
       position: absolute;
       bottom: 60px;
@@ -755,6 +809,25 @@
         <button id="btn-current-location" onclick="useCurrentLocation()">&#128205; Current location</button>
         <button id="btn-click-map" onclick="handleClickMapBtn()"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="22" y1="12" x2="18" y2="12"/><line x1="6" y1="12" x2="2" y2="12"/><line x1="12" y1="6" x2="12" y2="2"/><line x1="12" y1="22" x2="12" y2="18"/></svg> <span id="btn-click-map-label">Click on map</span></button>
         <button id="btn-cancel-add-tree" onclick="cancelAddTree()" title="Cancel">&#10005;</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Install banner -->
+  <div class="install-banner" id="install-banner" style="display:none;">
+    <div class="install-banner-content">
+      <h3 class="install-banner-title">Install</h3>
+      <p class="install-banner-text">Add the Fulham Cemetery Tree Map to your phone for the best experience.</p>
+      <ul class="install-banner-reason" id="install-reason">
+        <li>Removes the browser toolbar so the map fills the whole screen.</li>
+        <li>You can get back to the map more easily in the future.</li>
+      </ul>
+      <div class="install-banner-actions">
+        <button class="install-banner-why" id="install-why">Why?</button>
+        <div class="install-banner-actions-right">
+          <button class="install-banner-dismiss" id="install-dismiss">Not now</button>
+          <button class="install-banner-btn" id="install-btn"><span>Install</span> <span>&#8250;</span></button>
+        </div>
       </div>
     </div>
   </div>
@@ -2050,6 +2123,73 @@
 
   map.on('popupclose', closeFeedbackSheet);
   map.on('zoomend moveend', updateLabels);
+
+  // ── INSTALL BANNER ───────────────────────────────────────────────────────────
+  let deferredPrompt = null;
+
+  window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault();
+    deferredPrompt = e;
+    showInstallBanner();
+  });
+
+  function shouldShowInstallBanner() {
+    if (window.innerWidth > 767) return false;
+    if (window.matchMedia('(display-mode: standalone)').matches || navigator.standalone === true) return false;
+    if (sessionStorage.getItem('install-banner-dismissed') === 'true') return false;
+    return true;
+  }
+
+  function showInstallBanner() {
+    if (!shouldShowInstallBanner()) return;
+    const b = document.getElementById('install-banner');
+    if (b) b.style.display = '';
+  }
+
+  function dismissBanner() {
+    sessionStorage.setItem('install-banner-dismissed', 'true');
+    const b = document.getElementById('install-banner');
+    if (b) b.style.display = 'none';
+  }
+
+  (function () {
+    const isIOS    = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+    const isSafari = /Safari/.test(navigator.userAgent) && !/CriOS|FxiOS|Chrome/.test(navigator.userAgent);
+
+    if (isIOS && isSafari && navigator.standalone === false) showInstallBanner();
+    if (deferredPrompt) showInstallBanner();
+
+    document.getElementById('install-btn').addEventListener('click', () => {
+      if (deferredPrompt) {
+        deferredPrompt.prompt();
+        deferredPrompt.userChoice.then(() => { deferredPrompt = null; dismissBanner(); });
+      } else if (isIOS) {
+        document.querySelector('#install-banner .install-banner-content').innerHTML = `
+          <h3 class="install-banner-title">How to install</h3>
+          <div class="install-banner-ios-instructions">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#3B7A5C" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/>
+              <polyline points="16 6 12 2 8 6"/>
+              <line x1="12" y1="2" x2="12" y2="15"/>
+            </svg>
+            <span>Tap the <strong>Share</strong> button in Safari, then select <strong>\u201CAdd to Home Screen\u201D</strong></span>
+          </div>
+          <div class="install-banner-actions" style="margin-top:16px;">
+            <button class="install-banner-dismiss" onclick="dismissBanner()">Got it</button>
+          </div>
+        `;
+      }
+    });
+
+    document.getElementById('install-dismiss').addEventListener('click', dismissBanner);
+
+    document.getElementById('install-why').addEventListener('click', () => {
+      const reason = document.getElementById('install-reason');
+      const btn    = document.getElementById('install-why');
+      const isVisible = reason.classList.toggle('visible');
+      btn.textContent = isVisible ? 'Hide' : 'Why?';
+    });
+  }());
 
   // ── COPY / ADD TREE MODE ─────────────────────────────────────────────────────
   // addTreeState: 'idle' | 'copy-mode' | 'method-select' | 'click-map-mode' | 'getting-location' | 'modal-open'
