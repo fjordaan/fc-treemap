@@ -1314,6 +1314,11 @@
     html += row('Height',           tree['Height']);
     html += row('Notes',            tree['Notes']);
 
+    const monthVals = (tree['Months'] || '').split(',').map(m => m.trim()).filter(Boolean);
+    if (monthVals.length) {
+      html += `<div class="prop"><b>Seasonal interest:</b> <span>${monthVals.join(', ')}</span></div>`;
+    }
+
     const tags = parseTags(tree['Tag']);
     if (tags.length) html += `<div class="prop"><b>Tags:</b><div class="tag-pills">${tags.map(tagPill).join('')}</div></div>`;
     html += row('Ref',              tree['Ref']);
