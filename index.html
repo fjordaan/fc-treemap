@@ -703,21 +703,22 @@
       <span class="pulse-emoji">💧</span> Tree watering status <i class="arrow">▼</i>
     </button>
     <div id="watering-filter-options">
+      <p style="margin: 4px 4px 6px; font-size: 12px; color: #555; font-style: italic;">Select an option to highlight trees</p>
       <label class="watering-opt" onclick="selectWateringOpt(this, 'none', event)">
         <input type="radio" name="wf" value="none">
         <span class="watering-opt-label">😢 Not being watered: <em>Volunteers needed!</em></span>
       </label>
       <label class="watering-opt" onclick="selectWateringOpt(this, '1', event)">
         <input type="radio" name="wf" value="1">
-        <span class="watering-opt-label">💧 20 liters / week: <em>Volunteers needed!</em></span>
+        <span class="watering-opt-label">🥉 20 liters / week: <em>Volunteers needed!</em></span>
       </label>
       <label class="watering-opt" onclick="selectWateringOpt(this, '2', event)">
         <input type="radio" name="wf" value="2">
-        <span class="watering-opt-label">💧💧 40 liters / week: <em>Almost there!</em></span>
+        <span class="watering-opt-label">🥈 40 liters / week: <em>Almost there!</em></span>
       </label>
       <label class="watering-opt" onclick="selectWateringOpt(this, '3', event)">
         <input type="radio" name="wf" value="3">
-        <span class="watering-opt-label">💧💧💧 60 liters / week: <em>Sorted!</em></span>
+        <span class="watering-opt-label">🥇 60 liters / week: <em>Sorted!</em></span>
       </label>
     </div>
   </div>
@@ -1328,9 +1329,8 @@
       if (waterers.length === 0) {
         statusHtml = `<span>😢<br><i>Not being watered: Volunteers needed!</i></span>`;
       } else {
-        const drops = [1,2,3].map(i =>
-          `<span style="opacity:${i <= waterers.length ? '1' : '0.2'}">💧</span>`
-        ).join('');
+        const medals = { 1: '🥉', 2: '🥈', 3: '🥇' };
+        const drops = medals[waterers.length] || medals[3];
         const needed = waterers.length < 3 ? `<br><i>More volunteers needed!</i>` : '';
         statusHtml = `<span>${drops}${needed}</span>`;
       }
@@ -1745,10 +1745,10 @@
   }
 
   function applyWateringOverlays() {
-    const count = activeWateringOpt === 'none' ? 1 : parseInt(activeWateringOpt);
-    const emoji = activeWateringOpt === 'none' ? '😢' : '💧';
-    const drops = Array.from({length: count}, () => `<span class="drop">${emoji}</span>`).join('');
-    const iconW = count * 22;
+    const medals = { '1': '🥉', '2': '🥈', '3': '🥇' };
+    const emoji = activeWateringOpt === 'none' ? '😢' : medals[activeWateringOpt];
+    const drops = `<span class="drop">${emoji}</span>`;
+    const iconW = 22;
     const icon = L.divIcon({
       className: 'watering-drop-icon',
       html: drops,
