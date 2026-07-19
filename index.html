@@ -89,6 +89,50 @@
     .watering-opt-label em { font-style: normal; color: #555; }
     .watering-opt.selected { font-weight: 600; }
 
+    /* ── AERIAL PHOTO LAYERS (inside .leaflet-control-layers) ─────────────────── */
+    .aerial-heading {
+      font-size: 11px; font-weight: bold; text-transform: uppercase;
+      letter-spacing: 0.04em; color: #777;
+      margin-bottom: 4px;
+    }
+    .aerial-opt {
+      display: flex; align-items: center; gap: 4px;
+      cursor: pointer;
+    }
+    .aerial-opt.disabled { opacity: 0.4; cursor: default; }
+    .aerial-opt.selected { font-weight: 600; }
+    .aerial-checkbox-row {
+      display: flex; align-items: center; gap: 4px;
+      cursor: pointer;
+      margin-bottom: 4px;
+    }
+    .aerial-off-row {
+      font-size: 12px; color: #888;
+      cursor: pointer;
+      display: flex; align-items: center; gap: 4px;
+    }
+    .aerial-off-row.selected { font-weight: 600; color: #1a1a1a; }
+
+    /* ── CALIBRATION PANEL (dev tool) ───────────────────────────────────────── */
+    #calibrate-panel {
+      position: fixed;
+      bottom: 0; left: 0; right: 0;
+      z-index: 2000;
+      background: #fff3cd;
+      border-top: 2px solid #d4a017;
+      padding: 8px 16px;
+      font-size: 13px;
+      display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+    }
+    #calibrate-panel strong { color: #7a5000; }
+    #calibrate-panel button {
+      padding: 4px 10px; font-size: 12px;
+      border: 1px solid #d4a017; border-radius: 4px;
+      background: white; cursor: pointer;
+    }
+    #calibrate-panel button:hover { background: #fdf0c0; }
+    #calibrate-coords { font-family: monospace; font-size: 11px; color: #555; }
+
     #panel {
       position: absolute;
       top: 0;
@@ -1124,7 +1168,13 @@
   }
 
   // ── COLOUR TOOL ──────────────────────────────────────────────────────────────
-  const COLOUR_TOOL = new URLSearchParams(window.location.search).has('devcolours');
+  const COLOUR_TOOL   = new URLSearchParams(window.location.search).has('devcolours');
+  const CALIBRATE_KEY = new URLSearchParams(window.location.search).get('calibrate'); // e.g. '1940-clean'
+  let calibrateState  = null; // null | 'map-nw' | 'map-se' | 'img-nw' | 'img-se'
+  let calibrateMapNW  = null; // {lat, lng} — reference point clicked on base map
+  let calibrateMapSE  = null;
+  let calibrateImgNW  = null; // {lat, lng} — same point clicked on overlay image
+  let calibrateImgSE  = null;
   let speciesColours = {};
   if (COLOUR_TOOL) {
     try { speciesColours = JSON.parse(localStorage.getItem('fc-treemap-species-colours') || '{}'); } catch(e) {}
@@ -1567,9 +1617,10 @@
     let count = 0;
     markers.forEach((marker, tree) => {
       const show = matchesFilters(tree);
-      if (show) {
+      if (show) count++;
+      const visible = show && !hideMarkers;
+      if (visible) {
         if (!map.hasLayer(marker)) marker.addTo(map);
-        count++;
       } else {
         if (map.hasLayer(marker)) marker.remove();
         const tooltip = marker.getTooltip();
@@ -1607,6 +1658,7 @@
     if (map.hasLayer(baseLayers['Satellite']))  params.set('satellite', '1');
     if (map.hasLayer(sectionLayer))             params.set('sections',  '1');
     if (pathsLayer && map.hasLayer(pathsLayer)) params.set('paths',     '1');
+    if (currentAerialKey) params.set('aerial', currentAerialKey);
     const base = window.location.origin + window.location.pathname;
     return params.toString() ? `${base}?${params}` : base;
   }
@@ -1661,6 +1713,14 @@
     if (params.get('satellite') === '1') { baseLayers['Street map'].remove(); baseLayers['Satellite'].addTo(map); }
     if (params.get('sections')  === '1') sectionLayer.addTo(map);
     // paths=1 is handled inside the KML fetch callback (layer loads asynchronously)
+    const aerialParam = params.get('aerial');
+    if (aerialParam) {
+      const m = aerialParam.match(/^(\d{4})-(clean|captions)$/);
+      if (m) {
+        const ly = AERIAL_LAYERS.find(l => l.year === parseInt(m[1]));
+        if (ly && ly[m[2]].bounds) selectAerialLayer(aerialParam, ly, m[2]);
+      }
+    }
     applyFilters();
   }
 
@@ -1672,6 +1732,7 @@
       .forEach(el => { el.checked = false; });
     document.querySelectorAll('#filter-months input').forEach(cb => { cb.checked = false; });
     document.querySelectorAll('.month-btn').forEach(el => el.classList.remove('selected'));
+    selectAerialLayer(null, null, null);
     applyFilters();
   }
 
@@ -1792,6 +1853,47 @@
     })
   };
 
+  // ── AERIAL PHOTO LAYERS ──────────────────────────────────────────────────────
+  // bounds format: [[swLat, wLng], [nLat, eLng]]  (Leaflet LatLngBounds, SW + NE)
+  // Derived from calibration: swLat = seLat click, wLng = nwLng click, nLat = nwLat click, eLng = seLng click
+  // Set bounds to null for any variant not yet calibrated — it will appear disabled in the UI.
+  const AERIAL_LAYERS = [
+    {
+      year: 1940, label: '1940',
+      clean:    { file: 'bg-layers/1940-bglayer-clean.jpg',    bounds: [[51.4784509, -0.2190301], [51.4836764, -0.2130960]] },
+      captions: { file: 'bg-layers/1940-bglayer-captions.jpg', bounds: [[51.4784509, -0.2190301], [51.4836764, -0.2130960]] },
+      rotation: 3.4168
+    },
+    {
+      year: 1966, label: '1966',
+      clean:    { file: 'bg-layers/1966-bglayer-clean.jpg',    bounds: [[51.4783979, -0.2190469], [51.4838086, -0.2129026]] },
+      captions: { file: 'bg-layers/1966-bglayer-captions.jpg', bounds: [[51.4783979, -0.2190469], [51.4838086, -0.2129026]] },
+      rotation: -0.3894
+    },
+    {
+      year: 1981, label: '1981',
+      clean:    { file: 'bg-layers/1981-bglayer-clean.jpg',    bounds: [[51.4784985, -0.2190923], [51.4837426, -0.2131370]] },
+      captions: { file: 'bg-layers/1981-bglayer-captions.jpg', bounds: [[51.4784985, -0.2190923], [51.4837426, -0.2131370]] },
+      rotation: -0.7662
+    },
+    {
+      year: 1992, label: '1992',
+      clean:    { file: 'bg-layers/1992-bglayer-clean.jpg',    bounds: [[51.4784354, -0.2188588], [51.4836001, -0.2129939]] },
+      captions: { file: 'bg-layers/1992-bglayer-captions.jpg', bounds: [[51.4784354, -0.2188588], [51.4836001, -0.2129939]] },
+      rotation: 0.5792
+    },
+    {
+      year: 2003, label: '2003',
+      clean:    { file: 'bg-layers/2003-bglayer-clean.jpg',    bounds: [[51.4784861, -0.2187571], [51.4835782, -0.2129745]] },
+      captions: { file: 'bg-layers/2003-bglayer-captions.jpg', bounds: [[51.4784861, -0.2187571], [51.4835782, -0.2129745]] },
+      rotation: 0.7089
+    },
+  ];
+
+  let currentAerialLayer = null; // the L.imageOverlay currently on map, or null
+  let currentAerialKey   = null; // string like '1940-clean', or null
+  let hideMarkers        = false; // "Hide markers" checkbox — doesn't change the active filters
+
   // ── SECTION LAYOUT ───────────────────────────────────────────────────────────
   // Coordinates converted from KML (lng,lat) → Leaflet [lat,lng], closing point removed.
   const SECTIONS = [
@@ -1861,6 +1963,9 @@
   map.createPane('waterDropPane');
   map.getPane('waterDropPane').style.zIndex = 620;
   map.getPane('waterDropPane').style.pointerEvents = 'none';
+  map.createPane('aerialPane');
+  map.getPane('aerialPane').style.zIndex = 300; // above tiles (200), below overlays/markers (400+)
+  map.getPane('aerialPane').style.pointerEvents = 'none';
   baseLayers['Street map'].addTo(map);
   const layerControl = L.control.layers(baseLayers, { 'Section layout': sectionLayer }, { position: 'bottomleft' }).addTo(map);
 
@@ -1912,6 +2017,350 @@
       if (new URLSearchParams(window.location.search).get('paths') === '1') group.addTo(map);
     })
     .catch(err => console.warn('KML load failed:', err));
+
+  // ── AERIAL PHOTO LAYERS (appended into the Leaflet layers control) ────────────
+  function buildAerialPanel() {
+    const anyAvailable = AERIAL_LAYERS.some(ly => ly.clean.bounds || ly.captions.bounds);
+    if (!anyAvailable) return; // no calibrated layers yet
+
+    const form = layerControl.getContainer().querySelector('.leaflet-control-layers-list');
+    const baseList = form.querySelector('.leaflet-control-layers-base');
+    const overlaysList = form.querySelector('.leaflet-control-layers-overlays');
+    const existingSeparator = form.querySelector('.leaflet-control-layers-separator');
+
+    const aerialSection = document.createElement('div');
+
+    const heading = document.createElement('div');
+    heading.className = 'aerial-heading';
+    heading.textContent = 'Historic aerial photos';
+    aerialSection.appendChild(heading);
+
+    AERIAL_LAYERS.forEach(ly => {
+      [['clean', `${ly.label}`], ['captions', `${ly.label} with labels`]].forEach(([variant, label]) => {
+        const hasData = !!ly[variant].bounds;
+        const key = `${ly.year}-${variant}`;
+        const row = document.createElement('label');
+        row.className = 'aerial-opt' + (hasData ? '' : ' disabled');
+        row.dataset.key = key;
+        row.innerHTML = `<input type="radio" class="leaflet-control-layers-selector" name="aerial" value="${key}"${hasData ? '' : ' disabled'}>${label}`;
+        if (hasData) {
+          const input = row.querySelector('input');
+          input.onchange = () => selectAerialLayer(key, ly, variant);
+          // Clicking an already-selected radio doesn't fire `change` (its checked
+          // state doesn't move), so use `click` to detect a repeat click and turn it off.
+          input.addEventListener('click', () => {
+            if (currentAerialKey === key) selectAerialLayer(null, null);
+          });
+        }
+        aerialSection.appendChild(row);
+      });
+    });
+
+    // "Off" row at the end of the radio group
+    const offRow = document.createElement('label');
+    offRow.className = 'aerial-off-row selected';
+    offRow.id = 'aerial-opt-off';
+    offRow.innerHTML = `<input type="radio" class="leaflet-control-layers-selector" name="aerial" checked> Off`;
+    offRow.querySelector('input').onchange = () => selectAerialLayer(null, null);
+    aerialSection.appendChild(offRow);
+
+    const hideMarkersRow = document.createElement('label');
+    hideMarkersRow.className = 'aerial-checkbox-row';
+    hideMarkersRow.innerHTML = `<input type="checkbox" class="leaflet-control-layers-selector"${hideMarkers ? ' checked' : ''}> Hide markers`;
+    hideMarkersRow.querySelector('input').onchange = (e) => {
+      hideMarkers = e.target.checked;
+      applyFilters();
+    };
+    aerialSection.appendChild(hideMarkersRow);
+
+    // Reorder groups so base layers sit closest to the control's toggle button:
+    // Historic aerials (top) → Section layout/Paths & structures → Street map/Satellite (bottom).
+    // appendChild on an already-attached node moves it, so this rebuilds the order in place.
+    const separatorBeforeBase = document.createElement('div');
+    separatorBeforeBase.className = 'leaflet-control-layers-separator';
+    form.appendChild(aerialSection);
+    form.appendChild(existingSeparator);
+    form.appendChild(overlaysList);
+    form.appendChild(separatorBeforeBase);
+    form.appendChild(baseList);
+  }
+
+  // Hide the aerial overlay during zoom animation — smoother than watching it
+  // snap into place once Leaflet finishes repositioning it.
+  map.on('zoomstart', () => {
+    const el = currentAerialLayer && currentAerialLayer.getElement();
+    if (el) el.style.visibility = 'hidden';
+  });
+  map.on('zoomend', () => {
+    const el = currentAerialLayer && currentAerialLayer.getElement();
+    if (el) el.style.visibility = '';
+  });
+
+  function selectAerialLayer(key, ly, variant) {
+    // Remove current overlay
+    if (currentAerialLayer) {
+      currentAerialLayer.remove();
+      currentAerialLayer = null;
+    }
+    currentAerialKey = key;
+
+    // Deselect all options
+    document.querySelectorAll('.aerial-opt').forEach(el => {
+      el.classList.remove('selected');
+      if (el.querySelector('input')) el.querySelector('input').checked = false;
+    });
+    const offRow = document.getElementById('aerial-opt-off');
+    if (offRow) offRow.classList.remove('selected');
+
+    if (key && ly && variant) {
+      const layerDef = ly[variant];
+      const layer = L.imageOverlay(layerDef.file, layerDef.bounds, {
+        opacity: 1,
+        pane: 'aerialPane',
+        interactive: false
+      });
+
+      // Leaflet repositions the image element by overwriting its CSS `transform`
+      // (translate3d + scale) on every _reset()/_animateZoom() call. Rotation also
+      // needs `transform`, so setting it directly clobbers Leaflet's own positioning —
+      // the overlay jumps to the wrong spot until the next pan/zoom, and visibly snaps
+      // mid zoom-animation. Patch both methods to reapply rotation on top of whatever
+      // Leaflet just set, and do it before addTo() so the very first _reset() is covered.
+      if (ly.rotation) {
+        const applyRotation = () => {
+          const el = layer.getElement();
+          if (el) {
+            el.style.transformOrigin = 'center center';
+            el.style.transform += ` rotate(${ly.rotation}deg)`;
+          }
+        };
+        const origReset = layer._reset.bind(layer);
+        layer._reset = function () { origReset(); applyRotation(); };
+        const origAnimateZoom = layer._animateZoom?.bind(layer);
+        if (origAnimateZoom) {
+          layer._animateZoom = function (e) { origAnimateZoom(e); applyRotation(); };
+        }
+      }
+
+      currentAerialLayer = layer.addTo(map);
+
+      // Fallback if image fails to load
+      currentAerialLayer.on('load', () => {
+        const el = currentAerialLayer.getElement();
+        if (el) el.onerror = () => {
+          console.warn('Aerial image failed to load:', layerDef.file);
+          if (currentAerialLayer) { currentAerialLayer.remove(); currentAerialLayer = null; }
+        };
+      });
+
+      // Mark selected row
+      const row = document.querySelector(`.aerial-opt[data-key="${key}"]`);
+      if (row) { row.classList.add('selected'); row.querySelector('input').checked = true; }
+    } else {
+      // Off
+      if (offRow) {
+        offRow.classList.add('selected');
+        const offInput = offRow.querySelector('input');
+        if (offInput) offInput.checked = true;
+      }
+    }
+  }
+
+  // ── CALIBRATION TOOL (dev only, activated via ?calibrate=1940-clean) ─────────
+  // 4-click georeferencing:
+  //   Clicks 1+2: two reference points on the BASE MAP  → real-world lat/lng
+  //   Clicks 3+4: same points clicked on the OVERLAY    → image pixel positions
+  // From these we compute exact scale and origin for the image overlay.
+  //
+  // Default approximate bounds covering the cemetery — initial preview position.
+  const AERIAL_DEFAULT_BOUNDS = [[51.4782, -0.2185], [51.4822, -0.2130]];
+
+  function computeAerialBounds(mapNW, mapSE, imgNW, imgSE, previewBounds) {
+    // Work in SCREEN pixels (via Mercator projection) to avoid lat/lng aspect-ratio issues.
+    // This lets us solve a proper similarity transform: rotation + uniform scale + translation.
+    const W = 1843, H = 2606;
+
+    // Screen positions of all four clicks
+    const mapNWs = map.latLngToContainerPoint([mapNW.lat, mapNW.lng]);
+    const mapSEs = map.latLngToContainerPoint([mapSE.lat, mapSE.lng]);
+    const imgNWs = map.latLngToContainerPoint([imgNW.lat, imgNW.lng]);
+    const imgSEs = map.latLngToContainerPoint([imgSE.lat, imgSE.lng]);
+
+    // Screen bounds of the current preview overlay (NW corner = [neLat, swLng])
+    const previewTL = map.latLngToContainerPoint([previewBounds[1][0], previewBounds[0][1]]);
+    const previewBR = map.latLngToContainerPoint([previewBounds[0][0], previewBounds[1][1]]);
+    const previewW  = previewBR.x - previewTL.x;
+    const previewH  = previewBR.y - previewTL.y;
+
+    // Convert image clicks → image pixel coordinates
+    const px1 = (imgNWs.x - previewTL.x) / previewW * W;
+    const py1 = (imgNWs.y - previewTL.y) / previewH * H;
+    const px2 = (imgSEs.x - previewTL.x) / previewW * W;
+    const py2 = (imgSEs.y - previewTL.y) / previewH * H;
+
+    // Similarity transform in screen space (y-down, clockwise rotation positive):
+    //   screenX = a·px − b·py + sx0
+    //   screenY = b·px + a·py + sy0   (a = s·cos θ, b = s·sin θ)
+    const Dpx = px2 - px1,  Dpy = py2 - py1;
+    const Dsx = mapSEs.x - mapNWs.x,  Dsy = mapSEs.y - mapNWs.y;
+    const denom = Dpx*Dpx + Dpy*Dpy;
+    const a = (Dsx*Dpx + Dsy*Dpy) / denom;
+    const b = (Dsy*Dpx - Dsx*Dpy) / denom;
+
+    const rotation = Math.atan2(b, a) * 180 / Math.PI; // CW degrees for CSS
+    const s = Math.sqrt(a*a + b*b);                     // screen pixels per image pixel
+
+    // Screen position of image origin (pixel 0,0)
+    const sx0 = mapNWs.x - a*px1 + b*py1;
+    const sy0 = mapNWs.y - b*px1 - a*py1;
+
+    // Image centre in screen space
+    const cxs = sx0 + a*W/2 - b*H/2;
+    const cys = sy0 + b*W/2 + a*H/2;
+
+    // Axis-aligned bounding box centred on the correct point (rotation applied separately via CSS)
+    const halfWs = s * W / 2,  halfHs = s * H / 2;
+    const nwLL = map.containerPointToLatLng({ x: cxs - halfWs, y: cys - halfHs });
+    const seLL = map.containerPointToLatLng({ x: cxs + halfWs, y: cys + halfHs });
+
+    // Leaflet bounds: [[swLat, wLng], [neLat, eLng]]
+    const bounds = [[seLL.lat, nwLL.lng], [nwLL.lat, seLL.lng]];
+    return { bounds, rotation };
+  }
+
+  function initCalibration() {
+    if (!CALIBRATE_KEY) return;
+    const match = CALIBRATE_KEY.match(/^(\d{4})-(clean|captions)$/);
+    if (!match) { console.warn('Invalid calibrate param:', CALIBRATE_KEY); return; }
+    const year    = parseInt(match[1]);
+    const variant = match[2];
+    const ly      = AERIAL_LAYERS.find(l => l.year === year);
+    if (!ly) { console.warn('Unknown year for calibration:', year); return; }
+
+    // Current bounds used for rendering the preview (starts at default, updated after calibration)
+    let previewBounds = AERIAL_DEFAULT_BOUNDS;
+    let previewOverlay = null;
+
+    function showPreview(bounds, opacity = 0.55, rotation = 0) {
+      if (previewOverlay) previewOverlay.remove();
+      previewBounds = bounds;
+      previewOverlay = L.imageOverlay(ly[variant].file, bounds, {
+        opacity, pane: 'aerialPane', interactive: false
+      }).addTo(map);
+      if (rotation) {
+        const el = previewOverlay.getElement();
+        if (el) { el.style.transformOrigin = 'center center'; el.style.transform = `rotate(${rotation}deg)`; }
+      }
+    }
+
+    function setInstruction(text) {
+      document.getElementById('calibrate-instruction').textContent = text;
+    }
+
+    // Inject the calibration bar
+    const panel = document.createElement('div');
+    panel.id = 'calibrate-panel';
+    panel.innerHTML =
+      `<div><strong>Dev calibration: ${CALIBRATE_KEY}</strong></div>` +
+      `<div id="calibrate-instruction"></div>` +
+      `<div id="calibrate-coords"></div>` +
+      `<button id="btn-cal-start">Start</button>` +
+      `<button id="btn-cal-copy" style="display:none">Copy bounds</button>` +
+      `<button id="btn-cal-reset">Reset</button>`;
+    document.body.appendChild(panel);
+
+    function doReset() {
+      calibrateState = null;
+      calibrateMapNW = calibrateMapSE = calibrateImgNW = calibrateImgSE = null;
+      map.getContainer().style.cursor = '';
+      if (previewOverlay) { previewOverlay.remove(); previewOverlay = null; }
+      previewBounds = AERIAL_DEFAULT_BOUNDS;
+      const s = JSON.parse(localStorage.getItem('fc-treemap-calibration') || '{}');
+      delete s[CALIBRATE_KEY];
+      localStorage.setItem('fc-treemap-calibration', JSON.stringify(s));
+      document.getElementById('calibrate-coords').textContent = '';
+      document.getElementById('btn-cal-copy').style.display = 'none';
+      setInstruction('Click "Start" to begin');
+    }
+
+    // Restore previous completed calibration from localStorage
+    const stored = JSON.parse(localStorage.getItem('fc-treemap-calibration') || '{}');
+    if (stored[CALIBRATE_KEY]) {
+      const { bounds, rotation: rot } = stored[CALIBRATE_KEY];
+      showPreview(bounds, 0.55, rot || 0);
+      const b = bounds;
+      document.getElementById('calibrate-coords').textContent =
+        `bounds: [[${b[0][0].toFixed(7)}, ${b[0][1].toFixed(7)}], [${b[1][0].toFixed(7)}, ${b[1][1].toFixed(7)}]]  rotation: ${(rot||0).toFixed(3)}°`;
+      document.getElementById('btn-cal-copy').style.display = '';
+      setInstruction('Previous calibration restored. Click "Start" to redo, or "Copy bounds" to use.');
+    } else {
+      setInstruction('Click "Start" to begin');
+    }
+
+    document.getElementById('btn-cal-start').onclick = () => {
+      // Always start fresh, hiding the overlay so the base map is clear
+      if (previewOverlay) { previewOverlay.remove(); previewOverlay = null; }
+      calibrateMapNW = calibrateMapSE = calibrateImgNW = calibrateImgSE = null;
+      calibrateState = 'map-nw';
+      map.getContainer().style.cursor = 'crosshair';
+      document.getElementById('calibrate-coords').textContent = '';
+      document.getElementById('btn-cal-copy').style.display = 'none';
+      setInstruction('Step 1/4: Click a recognisable NW reference point on the base map');
+    };
+
+    document.getElementById('btn-cal-reset').onclick = doReset;
+
+    document.getElementById('btn-cal-copy').onclick = () => {
+      const s = JSON.parse(localStorage.getItem('fc-treemap-calibration') || '{}');
+      const entry = s[CALIBRATE_KEY];
+      if (!entry) return;
+      const r = entry.bounds;
+      const text =
+        `// ${CALIBRATE_KEY}\n` +
+        `bounds: [[${r[0][0].toFixed(7)}, ${r[0][1].toFixed(7)}], [${r[1][0].toFixed(7)}, ${r[1][1].toFixed(7)}]],\n` +
+        `rotation: ${(entry.rotation || 0).toFixed(4)}`;
+      navigator.clipboard.writeText(text).then(() => {
+        const btn = document.getElementById('btn-cal-copy');
+        btn.textContent = 'Copied!';
+        setTimeout(() => { btn.textContent = 'Copy bounds'; }, 2000);
+      });
+    };
+
+    // Called by the map click handler for each of the 4 calibration clicks
+    window._calClick = (latlng) => {
+      const pt = { lat: latlng.lat, lng: latlng.lng };
+      if (calibrateState === 'map-nw') {
+        calibrateMapNW = pt;
+        calibrateState = 'map-se';
+        setInstruction('Step 2/4: Click a recognisable SE reference point on the base map');
+      } else if (calibrateState === 'map-se') {
+        calibrateMapSE = pt;
+        calibrateState = 'img-nw';
+        // Now show the overlay fully opaque so the user can clearly see the photo
+        showPreview(previewBounds, 1);
+        setInstruction('Step 3/4: Click that same NW reference point in the photo');
+      } else if (calibrateState === 'img-nw') {
+        calibrateImgNW = pt;
+        calibrateState = 'img-se';
+        setInstruction('Step 4/4: Click that same SE reference point in the photo');
+      } else if (calibrateState === 'img-se') {
+        calibrateImgSE = pt;
+        calibrateState = null;
+        map.getContainer().style.cursor = '';
+        // Compute calibrated bounds + rotation
+        const { bounds, rotation: rot } = computeAerialBounds(calibrateMapNW, calibrateMapSE, calibrateImgNW, calibrateImgSE, previewBounds);
+        showPreview(bounds, 0.55, rot);
+        const s = JSON.parse(localStorage.getItem('fc-treemap-calibration') || '{}');
+        s[CALIBRATE_KEY] = { bounds, rotation: rot };
+        localStorage.setItem('fc-treemap-calibration', JSON.stringify(s));
+        const b = bounds;
+        document.getElementById('calibrate-coords').textContent =
+          `bounds: [[${b[0][0].toFixed(7)}, ${b[0][1].toFixed(7)}], [${b[1][0].toFixed(7)}, ${b[1][1].toFixed(7)}]]  rotation: ${rot.toFixed(3)}°`;
+        document.getElementById('btn-cal-copy').style.display = '';
+        setInstruction('Done — check the overlay alignment. Click "Start" to redo or "Copy bounds" to use.');
+      }
+    };
+  }
 
   // Map<treeObject, L.Marker>
   const markers = new Map();
@@ -2011,6 +2460,8 @@
       `${trees.length} tree${trees.length !== 1 ? 's' : ''} shown`;
   }
 
+  buildAerialPanel();
+  initCalibration();
   loadData();
   // Open panel by default on desktop only
   if (window.innerWidth > 767) {
@@ -2580,6 +3031,11 @@
 
   // ── Map click handler (both copy-mode and click-map-mode) ────────────────────
   map.on('click', e => {
+    // Calibration mode intercepts all clicks when active
+    if (calibrateState && window._calClick) {
+      window._calClick(e.latlng);
+      return;
+    }
     if (addTreeState === 'copy-mode') {
       const lat = e.latlng.lat.toFixed(7);
       const lng = e.latlng.lng.toFixed(7);
