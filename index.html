@@ -168,6 +168,10 @@
       font-size: 12px;
       color: #555;
       font-weight: bold;
+      cursor: pointer;
+    }
+    #tree-count-number {
+      border-bottom: 1px dashed currentColor;
     }
     #filter-reset {
       font-size: 12px;
@@ -343,11 +347,73 @@
     }
     #btn-add-tree-submit:hover { background: #d4ecdf; }
     #btn-add-tree-submit:disabled { opacity: 0.6; cursor: default; }
-    .add-tree-actions .btn-cancel-modal {
+    .btn-cancel-modal {
       font-size: 12px; padding: 7px 14px; cursor: pointer;
       border: 1px solid #ccc; border-radius: 6px; background: #f5f5f5;
     }
+    .btn-cancel-modal:hover { background: #e8e8e8; }
     #add-tree-status { font-size: 12px; color: #666; margin-left: auto; }
+
+    /* ── Tree count refine modal ─────────────────────────────────────────────── */
+    #tree-count-backdrop {
+      display: none;
+      position: fixed;
+      inset: 0;
+      z-index: 3000;
+      background: rgba(0,0,0,0.4);
+    }
+    #tree-count-backdrop.open { display: block; }
+    #tree-count-modal {
+      position: fixed;
+      z-index: 3001;
+      background: white;
+      padding: 20px;
+      box-shadow: 0 4px 24px rgba(0,0,0,0.2);
+    }
+    @media (min-width: 768px) {
+      #tree-count-modal {
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        border-radius: 10px;
+        width: 340px;
+        max-height: 90vh;
+        overflow-y: auto;
+      }
+    }
+    @media (max-width: 767px) {
+      #tree-count-modal {
+        bottom: 0; left: 0; right: 0;
+        border-radius: 14px 14px 0 0;
+        max-height: 85vh;
+        overflow-y: auto;
+        transform: translateY(100%);
+        transition: transform 0.3s ease;
+        padding-bottom: 28px;
+      }
+      #tree-count-modal.open { transform: translateY(0); }
+    }
+    @media (min-width: 768px) {
+      #tree-count-modal { display: none; }
+      #tree-count-modal.open { display: block; }
+    }
+    #tree-count-handle { width: 40px; height: 4px; background: #ddd; border-radius: 2px; margin: 0 auto 16px; }
+    @media (min-width: 768px) {
+      #tree-count-handle { display: none; }
+    }
+    #tree-count-modal h3 { margin: 0 0 14px; font-size: 15px; color: #1a1a1a; }
+    .exclude-opt {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 0;
+      font-size: 13px;
+      color: #333;
+      cursor: pointer;
+      border-top: 1px solid #eee;
+    }
+    .exclude-opt:first-child { border-top: none; }
+    .tree-count-modal-actions { margin-top: 14px; text-align: right; }
 
     /* ── Install banner ──────────────────────────────────────────────────────── */
     .install-banner {
@@ -772,7 +838,7 @@
   <div id="panel">
     <div id="panel-header">
       <span style="display:flex;align-items:center;gap:6px">
-        <span id="tree-count">Loading…</span>
+        <span id="tree-count" onclick="openTreeCountModal()">Loading…</span>
         <button id="filter-share" onclick="copyFilterLink()" title="Copy link to current filters">
           <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
         </button>
@@ -892,6 +958,16 @@
       <button onclick="submitFeedbackSheet()">Send</button>
       <span class="feedback-status"></span>
       <a id="feedback-sheet-mailto" href="#" style="margin-left:auto;font-size:11px;color:#2a7ae2;text-decoration:none;white-space:nowrap;">&#9993; Send email instead</a>
+    </div>
+  </div>
+
+  <div id="tree-count-backdrop" onclick="closeTreeCountModal()"></div>
+  <div id="tree-count-modal">
+    <div id="tree-count-handle"></div>
+    <h3>Refine tree count</h3>
+    <div id="tree-count-options"></div>
+    <div class="tree-count-modal-actions">
+      <button type="button" class="btn-cancel-modal" onclick="closeTreeCountModal()">Done</button>
     </div>
   </div>
 
@@ -1592,6 +1668,7 @@
       const months = (tree['Months'] || '').split(',').map(m => m.trim());
       if (!months.includes(selectedMonth)) return false;
     }
+    if (EXCLUDE_OPTIONS.some(opt => excludeFilters[opt.key] && opt.match(tree))) return false;
     return true;
   }
 
@@ -1627,10 +1704,52 @@
         if (tooltip && tooltip.isOpen()) marker.closeTooltip();
       }
     });
-    document.getElementById('tree-count').textContent =
-      `${count} tree${count !== 1 ? 's' : ''} shown`;
+    document.getElementById('tree-count').innerHTML =
+      `<span id="tree-count-number">${count}</span> tree${count !== 1 ? 's' : ''} shown`;
     updateLabels();
     if (activeWateringOpt) { clearWateringOverlays(); applyWateringOverlays(); }
+    if (document.getElementById('tree-count-modal')?.classList.contains('open')) updateTreeCountModal();
+  }
+
+  function buildTreeCountModal() {
+    const container = document.getElementById('tree-count-options');
+    EXCLUDE_OPTIONS.forEach(opt => {
+      const row = document.createElement('label');
+      row.className = 'exclude-opt';
+      row.innerHTML =
+        `<input type="checkbox" id="exclude-opt-${opt.key}"${excludeFilters[opt.key] ? ' checked' : ''}>` +
+        `<span>${opt.label} (<span id="exclude-x-${opt.key}">0</span>): <span id="exclude-y-${opt.key}">0</span></span>`;
+      row.querySelector('input').onchange = (e) => {
+        excludeFilters[opt.key] = e.target.checked;
+        localStorage.setItem('fc-treemap-exclude-filters', JSON.stringify(excludeFilters));
+        applyFilters();
+      };
+      container.appendChild(row);
+    });
+  }
+
+  function updateTreeCountModal() {
+    // Trees matching every active filter, including any exclude options already selected.
+    const shownTrees = [];
+    markers.forEach((marker, tree) => { if (matchesFilters(tree)) shownTrees.push(tree); });
+    const currentTotal = shownTrees.length;
+    EXCLUDE_OPTIONS.forEach(opt => {
+      const x = shownTrees.filter(opt.match).length;
+      document.getElementById(`exclude-x-${opt.key}`).textContent = x;
+      document.getElementById(`exclude-y-${opt.key}`).textContent = currentTotal - x;
+    });
+  }
+
+  function openTreeCountModal() {
+    if (!markers.size) return;
+    document.getElementById('tree-count-backdrop').classList.add('open');
+    document.getElementById('tree-count-modal').classList.add('open');
+    updateTreeCountModal();
+  }
+
+  function closeTreeCountModal() {
+    document.getElementById('tree-count-backdrop').classList.remove('open');
+    document.getElementById('tree-count-modal').classList.remove('open');
   }
 
   function buildFilterUrl() {
@@ -1893,6 +2012,17 @@
   let currentAerialLayer = null; // the L.imageOverlay currently on map, or null
   let currentAerialKey   = null; // string like '1940-clean', or null
   let hideMarkers        = false; // "Hide markers" checkbox — doesn't change the active filters
+
+  // ── Tree count refine modal ────────────────────────────────────────────────
+  const EXCLUDE_OPTIONS = [
+    { key: 'deadCondition', label: 'Exclude Condition: Dead', match: tree => tree['Condition'] === 'Dead' },
+    { key: 'shrubForm',     label: 'Exclude Form: Shrub',     match: tree => tree['Form'] === 'Shrub' },
+    { key: 'hedgeForm',     label: 'Exclude Form: Hedge',     match: tree => tree['Form'] === 'Hedge' },
+  ];
+  const excludeFilters = { deadCondition: false, shrubForm: false, hedgeForm: false };
+  try {
+    Object.assign(excludeFilters, JSON.parse(localStorage.getItem('fc-treemap-exclude-filters') || '{}'));
+  } catch (e) {}
 
   // ── SECTION LAYOUT ───────────────────────────────────────────────────────────
   // Coordinates converted from KML (lng,lat) → Leaflet [lat,lng], closing point removed.
@@ -2442,6 +2572,7 @@
 
     buildFilters(trees);
     applyUrlFilters();
+    applyFilters(); // ensures persisted exclude-filter state is respected even with no URL params
     if (COLOUR_TOOL) buildColourTool(trees);
 
     // Open popup for a specific tree if ?ref= is in the URL
@@ -2455,12 +2586,10 @@
         }
       }
     }
-
-    document.getElementById('tree-count').textContent =
-      `${trees.length} tree${trees.length !== 1 ? 's' : ''} shown`;
   }
 
   buildAerialPanel();
+  buildTreeCountModal();
   initCalibration();
   loadData();
   // Open panel by default on desktop only
