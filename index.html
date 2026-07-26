@@ -519,10 +519,23 @@
       border-radius: 14px;
       object-fit: cover;
     }
-    #info-title {
+    .info-title-row {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
       margin: 0 0 6px;
+    }
+    #info-title {
+      margin: 0;
       font-size: 18px; color: #1D4556; text-align: center;
     }
+    #info-copy-link {
+      background: none; border: none; padding: 0; cursor: pointer;
+      color: #2a7ae2; display: flex; align-items: center;
+      flex-shrink: 0;
+    }
+    #info-copy-link:hover { color: #1a5ab8; }
     #info-description {
       font-size: 14px; color: #444; line-height: 1.45;
       text-align: center;
@@ -1140,7 +1153,12 @@
     <div id="info-handle"></div>
     <button id="info-modal-close" onclick="closeInfoModal()" aria-label="Close">&times;</button>
     <img id="info-icon" src="icons/icon-192.png" alt="">
-    <h2 id="info-title">Fulham Cemetery Tree Map</h2>
+    <div class="info-title-row">
+      <h2 id="info-title">Fulham Cemetery Tree Map</h2>
+      <button id="info-copy-link" onclick="copyMapLink()" title="Copy link to this map" aria-label="Copy link to this map">
+        <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+      </button>
+    </div>
     <p id="info-description">A beautiful and tranquil 13-acre Victorian cemetery, founded in 1865, proudly cared for by the Fulham Cemetery Friends since 2024.</p>
     <div class="info-row">
       Website: <a href="https://www.fulhamcemeteryfriends.org.uk" target="_blank" rel="noopener">www.fulhamcemeteryfriends.org.uk</a>
@@ -2001,6 +2019,11 @@
 
   function copyFilterLink() {
     navigator.clipboard.writeText(buildFilterUrl()).then(() => showToast('Filter link copied to clipboard'));
+  }
+
+  function copyMapLink() {
+    const url = window.location.origin + window.location.pathname;
+    navigator.clipboard.writeText(url).then(() => showToast('Map link copied to clipboard'));
   }
 
   function copyTreeLink(ref) {
