@@ -109,27 +109,40 @@
     .watering-opt-label em { font-style: normal; color: #555; }
     .watering-opt.selected { font-weight: 600; }
 
-    /* ── AERIAL PHOTO LAYERS (inside .leaflet-control-layers) ─────────────────── */
-    .aerial-heading {
+    /* Bigger tap targets for every row in the layers control (base layers, overlays, aerial section) */
+    .leaflet-control-layers label {
+      padding: 4px 8px;
+      border-bottom: 1px solid #eee;
+    }
+    .leaflet-control-layers label:last-child {
+      border-bottom: none;
+    }
+    .leaflet-control-layers label input {
+      margin-right: 4px;
+    }
+    .layers-group-heading {
       font-size: 11px; font-weight: bold; text-transform: uppercase;
       letter-spacing: 0.04em; color: #777;
+      padding: 0 8px;
       margin-bottom: 4px;
     }
+
+    /* ── AERIAL PHOTO LAYERS (inside .leaflet-control-layers) ─────────────────── */
     .aerial-opt {
-      display: flex; align-items: center; gap: 4px;
+      display: flex; align-items: center;
       cursor: pointer;
     }
     .aerial-opt.disabled { opacity: 0.4; cursor: default; }
     .aerial-opt.selected { font-weight: 600; }
     .aerial-checkbox-row {
-      display: flex; align-items: center; gap: 4px;
+      display: flex; align-items: center;
       cursor: pointer;
       margin-bottom: 4px;
     }
     .aerial-off-row {
       font-size: 12px; color: #888;
       cursor: pointer;
-      display: flex; align-items: center; gap: 4px;
+      display: flex; align-items: center;
     }
     .aerial-off-row.selected { font-weight: 600; color: #1a1a1a; }
 
@@ -1044,6 +1057,7 @@
       <p class="install-banner-text">Add the Fulham Cemetery Tree Map to your phone for the best experience.</p>
       <ul class="install-banner-reason" id="install-reason">
         <li>Removes the browser toolbar so the map fills the whole screen.</li>
+        <li>Opens external links in the app so it's easy to go back to the map.</li>
         <li>You can get back to the map more easily in the future.</li>
       </ul>
       <div class="install-banner-actions">
@@ -1084,7 +1098,7 @@
     <button id="info-modal-close" onclick="closeInfoModal()" aria-label="Close">&times;</button>
     <img id="info-icon" src="icons/icon-192.png" alt="">
     <h2 id="info-title">Fulham Cemetery Tree Map</h2>
-    <p id="info-description">A beautiful 13-acre Victorian cemetery, founded in 1865, proudly cared for by the Fulham Cemetery Friends</p>
+    <p id="info-description">A beautiful and tranquil 13-acre Victorian cemetery, founded in 1865, proudly cared for by the Fulham Cemetery Friends since 2024.</p>
     <div class="info-row">
       Website: <a href="https://www.fulhamcemeteryfriends.org.uk" target="_blank" rel="noopener">www.fulhamcemeteryfriends.org.uk</a>
     </div>
@@ -2120,31 +2134,31 @@
   // Set bounds to null for any variant not yet calibrated — it will appear disabled in the UI.
   const AERIAL_LAYERS = [
     {
-      year: 1940, label: '1940',
+      year: 1940, label: '1940-09',
       clean:    { file: 'bg-layers/1940-bglayer-clean.jpg',    bounds: [[51.4784509, -0.2190301], [51.4836764, -0.2130960]] },
       captions: { file: 'bg-layers/1940-bglayer-captions.jpg', bounds: [[51.4784509, -0.2190301], [51.4836764, -0.2130960]] },
       rotation: 3.4168
     },
     {
-      year: 1966, label: '1966',
+      year: 1966, label: '1966-07',
       clean:    { file: 'bg-layers/1966-bglayer-clean.jpg',    bounds: [[51.4783979, -0.2190469], [51.4838086, -0.2129026]] },
       captions: { file: 'bg-layers/1966-bglayer-captions.jpg', bounds: [[51.4783979, -0.2190469], [51.4838086, -0.2129026]] },
       rotation: -0.3894
     },
     {
-      year: 1981, label: '1981',
+      year: 1981, label: '1981-10',
       clean:    { file: 'bg-layers/1981-bglayer-clean.jpg',    bounds: [[51.4784985, -0.2190923], [51.4837426, -0.2131370]] },
       captions: { file: 'bg-layers/1981-bglayer-captions.jpg', bounds: [[51.4784985, -0.2190923], [51.4837426, -0.2131370]] },
       rotation: -0.7662
     },
     {
-      year: 1992, label: '1992',
+      year: 1992, label: '1992-05',
       clean:    { file: 'bg-layers/1992-bglayer-clean.jpg',    bounds: [[51.4784354, -0.2188588], [51.4836001, -0.2129939]] },
       captions: { file: 'bg-layers/1992-bglayer-captions.jpg', bounds: [[51.4784354, -0.2188588], [51.4836001, -0.2129939]] },
       rotation: 0.5792
     },
     {
-      year: 2003, label: '2003',
+      year: 2003, label: '2003-06',
       clean:    { file: 'bg-layers/2003-bglayer-clean.jpg',    bounds: [[51.4784861, -0.2187571], [51.4835782, -0.2129745]] },
       captions: { file: 'bg-layers/2003-bglayer-captions.jpg', bounds: [[51.4784861, -0.2187571], [51.4835782, -0.2129745]] },
       rotation: 0.7089
@@ -2159,9 +2173,10 @@
   const EXCLUDE_OPTIONS = [
     { key: 'deadCondition', label: 'Exclude Condition: Dead', match: tree => tree['Condition'] === 'Dead' },
     { key: 'shrubForm',     label: 'Exclude Form: Shrub',     match: tree => tree['Form'] === 'Shrub' },
+    { key: 'bushForm',      label: 'Exclude Form: Bush',      match: tree => tree['Form'] === 'Bush' },
     { key: 'hedgeForm',     label: 'Exclude Form: Hedge',     match: tree => tree['Form'] === 'Hedge' },
   ];
-  const excludeFilters = { deadCondition: false, shrubForm: false, hedgeForm: false };
+  const excludeFilters = { deadCondition: true, shrubForm: false, bushForm: false, hedgeForm: false };
   try {
     Object.assign(excludeFilters, JSON.parse(localStorage.getItem('fc-treemap-exclude-filters') || '{}'));
   } catch (e) {}
@@ -2303,7 +2318,7 @@
     const aerialSection = document.createElement('div');
 
     const heading = document.createElement('div');
-    heading.className = 'aerial-heading';
+    heading.className = 'layers-group-heading';
     heading.textContent = 'Historic aerial photos';
     aerialSection.appendChild(heading);
 
@@ -2350,10 +2365,25 @@
     // appendChild on an already-attached node moves it, so this rebuilds the order in place.
     const separatorBeforeBase = document.createElement('div');
     separatorBeforeBase.className = 'leaflet-control-layers-separator';
+
+    // Group headings live as siblings of the native Leaflet-managed lists (not inside
+    // them) — Leaflet empties and rebuilds .leaflet-control-layers-overlays/-base
+    // whenever addOverlay()/addBaseLayer() runs (e.g. the async KML overlay added
+    // later), which would wipe out anything appended as a child of those lists.
+    const overlaysHeading = document.createElement('div');
+    overlaysHeading.className = 'layers-group-heading';
+    overlaysHeading.textContent = 'Cemetery features';
+
+    const baseHeading = document.createElement('div');
+    baseHeading.className = 'layers-group-heading';
+    baseHeading.textContent = 'Base layer';
+
     form.appendChild(aerialSection);
     form.appendChild(existingSeparator);
+    form.appendChild(overlaysHeading);
     form.appendChild(overlaysList);
     form.appendChild(separatorBeforeBase);
+    form.appendChild(baseHeading);
     form.appendChild(baseList);
   }
 
