@@ -16,11 +16,18 @@
     #map { height: 100vh; height: 100dvh; width: 100%; }
     .leaflet-bottom { padding-bottom: env(safe-area-inset-bottom, 0px); }
 
-    #panel-toggle {
+    #header-btns {
       position: absolute;
       top: 10px;
       right: 310px;   /* just left of the 300px panel + 10px gap */
       z-index: 1001;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      transition: right 0.15s;
+    }
+    #header-btns:has(#panel-toggle.collapsed) { right: 10px; }
+    #panel-toggle {
       background: white;
       border: 2px solid rgba(0,0,0,0.25);
       border-radius: 4px;
@@ -29,19 +36,32 @@
       font-size: 13px;
       box-shadow: 0 1px 5px rgba(0,0,0,0.3);
       user-select: none;
-      transition: right 0.15s;
     }
     #panel-toggle:hover { background: #f4f4f4; }
-    #panel-toggle.collapsed { right: 10px; }
+    #info-btn {
+      flex-shrink: 0;
+      width: 34px;
+      height: 34px;
+      background: white;
+      border: 2px solid rgba(0,0,0,0.25);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      box-shadow: 0 1px 5px rgba(0,0,0,0.3);
+      color: #1D4556;
+    }
+    #info-btn:hover { background: #f4f4f4; }
 
     @media (max-width: 767px) {
-      #panel-toggle {
+      #header-btns {
         top: auto;
         bottom: max(16px, env(safe-area-inset-bottom));
         right: 10px;
         transition: none;
       }
-      #panel-toggle.collapsed { right: 10px; }
+      #header-btns:has(#panel-toggle.collapsed) { right: 10px; }
     }
 
     @keyframes slide-in-top {
@@ -414,6 +434,88 @@
     }
     .exclude-opt:first-child { border-top: none; }
     .tree-count-modal-actions { margin-top: 14px; text-align: right; }
+
+    /* ── Info / welcome modal ────────────────────────────────────────────────── */
+    /* z-index sits above the install banner (4000) so the welcome popup always shows on top of it */
+    #info-backdrop {
+      display: none;
+      position: fixed;
+      inset: 0;
+      z-index: 4001;
+      background: rgba(0,0,0,0.4);
+    }
+    #info-backdrop.open { display: block; }
+    #info-modal {
+      position: fixed;
+      z-index: 4002;
+      background: white;
+      box-shadow: 0 4px 24px rgba(0,0,0,0.2);
+    }
+    @media (min-width: 768px) {
+      #info-modal {
+        display: none;
+        top: 50%; left: 50%;
+        transform: translate(-50%, -50%);
+        border-radius: 10px;
+        width: 340px;
+        max-width: calc(100vw - 32px);
+        max-height: 90vh;
+        overflow-y: auto;
+        padding: 22px;
+      }
+      #info-modal.open { display: block; }
+    }
+    @media (max-width: 767px) {
+      #info-modal {
+        bottom: 0; left: 0; right: 0;
+        border-radius: 14px 14px 0 0;
+        max-height: 85vh;
+        overflow-y: auto;
+        padding: 8px 18px max(20px, env(safe-area-inset-bottom));
+        transform: translateY(100%);
+        transition: transform 0.3s ease;
+      }
+      #info-modal.open { transform: translateY(0); }
+    }
+    #info-handle {
+      width: 40px; height: 4px; background: #ddd; border-radius: 2px;
+      margin: 0 auto 12px;
+      display: none;
+    }
+    @media (max-width: 767px) { #info-handle { display: block; } }
+    #info-modal-close {
+      position: absolute; top: 8px; right: 10px;
+      background: none; border: none; cursor: pointer;
+      font-size: 22px; color: #888; line-height: 1; padding: 4px 8px;
+    }
+    #info-modal-close:hover { color: #333; }
+    #info-icon {
+      display: block; margin: 0 auto 12px;
+      width: 96px; height: 96px;
+      border-radius: 14px;
+      object-fit: cover;
+    }
+    #info-title {
+      margin: 0 0 6px;
+      font-size: 18px; color: #1D4556; text-align: center;
+    }
+    #info-description {
+      font-size: 14px; color: #444; line-height: 1.45;
+      text-align: center;
+      margin: 0 0 14px;
+    }
+    .info-row {
+      font-size: 13px; color: #444;
+      padding: 12px 0; border-top: 1px solid #eee;
+    }
+    .info-row:first-of-type { border-top: none; }
+    .info-row a { color: #2a7ae2; }
+    #info-attribution {
+      padding-top: 12px;
+      border-top: 1px solid #eee;
+      font-size: 12px; color: #888; text-align: center;
+    }
+    #info-attribution a { color: #2a7ae2; }
 
     /* ── Install banner ──────────────────────────────────────────────────────── */
     .install-banner {
@@ -833,7 +935,12 @@
     </div>
   </div>
 
-  <button id="panel-toggle" onclick="togglePanel()">&#9658; Filters</button>
+  <div id="header-btns">
+    <button id="info-btn" onclick="openInfoModal()" aria-label="About this map" title="About this map">
+      <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+    </button>
+    <button id="panel-toggle" onclick="togglePanel()">&#9658; Filters</button>
+  </div>
 
   <div id="panel">
     <div id="panel-header">
@@ -968,6 +1075,24 @@
     <div id="tree-count-options"></div>
     <div class="tree-count-modal-actions">
       <button type="button" class="btn-cancel-modal" onclick="closeTreeCountModal()">Done</button>
+    </div>
+  </div>
+
+  <div id="info-backdrop" onclick="closeInfoModal()"></div>
+  <div id="info-modal" role="dialog">
+    <div id="info-handle"></div>
+    <button id="info-modal-close" onclick="closeInfoModal()" aria-label="Close">&times;</button>
+    <img id="info-icon" src="icons/icon-192.png" alt="">
+    <h2 id="info-title">Fulham Cemetery Tree Map</h2>
+    <p id="info-description">A beautiful 13-acre Victorian cemetery, founded in 1865, proudly cared for by the Fulham Cemetery Friends</p>
+    <div class="info-row">
+      Website: <a href="https://www.fulhamcemeteryfriends.org.uk" target="_blank" rel="noopener">www.fulhamcemeteryfriends.org.uk</a>
+    </div>
+    <div class="info-row">
+      Contact: <a href="mailto:hello@fulhamcemeteryfriends.org.uk">hello@fulhamcemeteryfriends.org.uk</a>
+    </div>
+    <div id="info-attribution">
+      Built with <a href="https://github.com/fjordaan/park-treemap" target="_blank" rel="noopener">park-treemap</a> &mdash; a free, self-hosted tree-map template for any park's &quot;Friends of&quot; group.
     </div>
   </div>
 
@@ -1750,6 +1875,23 @@
   function closeTreeCountModal() {
     document.getElementById('tree-count-backdrop').classList.remove('open');
     document.getElementById('tree-count-modal').classList.remove('open');
+  }
+
+  // ── Info / welcome modal ───────────────────────────────────────────────────
+  function openInfoModal() {
+    document.getElementById('info-backdrop').classList.add('open');
+    document.getElementById('info-modal').classList.add('open');
+  }
+
+  function closeInfoModal() {
+    document.getElementById('info-backdrop').classList.remove('open');
+    document.getElementById('info-modal').classList.remove('open');
+  }
+
+  function maybeShowWelcome() {
+    if (localStorage.getItem('fc-treemap-welcome-seen') === 'true') return;
+    localStorage.setItem('fc-treemap-welcome-seen', 'true');
+    openInfoModal();
   }
 
   function buildFilterUrl() {
@@ -2592,6 +2734,7 @@
   buildTreeCountModal();
   initCalibration();
   loadData();
+  maybeShowWelcome();
   // Open panel by default on desktop only
   if (window.innerWidth > 767) {
     const panel  = document.getElementById('panel');
