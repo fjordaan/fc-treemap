@@ -1141,7 +1141,7 @@
   <div id="tree-count-backdrop" onclick="closeTreeCountModal()"></div>
   <div id="tree-count-modal">
     <div id="tree-count-handle"></div>
-    <h3>Refine tree count</h3>
+    <h3>Refine tree count (currently <span id="tree-count-modal-total">0</span>)</h3>
     <div id="tree-count-options"></div>
     <div class="tree-count-modal-actions">
       <button type="button" class="btn-cancel-modal" onclick="closeTreeCountModal()">Done</button>
@@ -1833,7 +1833,7 @@
     });
   }
 
-  function matchesFilters(tree) {
+  function matchesFilters(tree, skipExcludeKey) {
     if (wateringPanelOpen) return parseTags(tree['Tag']).some(isNewTag);
     const sciFilter    = document.getElementById('filter-sci').value;
     const commonFilter = document.getElementById('filter-common').value;
@@ -1876,7 +1876,7 @@
       const months = (tree['Months'] || '').split(',').map(m => m.trim());
       if (!months.includes(selectedMonth)) return false;
     }
-    if (EXCLUDE_OPTIONS.some(opt => excludeFilters[opt.key] && opt.match(tree))) return false;
+    if (EXCLUDE_OPTIONS.some(opt => opt.key !== skipExcludeKey && excludeFilters[opt.key] && opt.match(tree))) return false;
     return true;
   }
 
@@ -1926,7 +1926,7 @@
       row.className = 'exclude-opt';
       row.innerHTML =
         `<input type="checkbox" id="exclude-opt-${opt.key}"${excludeFilters[opt.key] ? ' checked' : ''}>` +
-        `<span>${opt.label} (<span id="exclude-x-${opt.key}">0</span>): <span id="exclude-y-${opt.key}">0</span></span>`;
+        `<span id="exclude-text-${opt.key}"></span>`;
       row.querySelector('input').onchange = (e) => {
         excludeFilters[opt.key] = e.target.checked;
         localStorage.setItem('fc-treemap-exclude-filters', JSON.stringify(excludeFilters));
@@ -1937,14 +1937,22 @@
   }
 
   function updateTreeCountModal() {
-    // Trees matching every active filter, including any exclude options already selected.
-    const shownTrees = [];
-    markers.forEach((marker, tree) => { if (matchesFilters(tree)) shownTrees.push(tree); });
-    const currentTotal = shownTrees.length;
+    document.getElementById('tree-count-modal-total').textContent =
+      document.getElementById('tree-count-number')?.textContent ?? '0';
     EXCLUDE_OPTIONS.forEach(opt => {
-      const x = shownTrees.filter(opt.match).length;
-      document.getElementById(`exclude-x-${opt.key}`).textContent = x;
-      document.getElementById(`exclude-y-${opt.key}`).textContent = currentTotal - x;
+      // Trees matching every OTHER active filter/exclude-option, ignoring this rule's own
+      // effect — so x means "how many trees this rule excludes" whether it's checked or not,
+      // rather than always reading 0 once its own exclusion has already removed them.
+      const otherTrees = [];
+      markers.forEach((marker, tree) => { if (matchesFilters(tree, opt.key)) otherTrees.push(tree); });
+      const x = otherTrees.filter(opt.match).length;
+      const textEl = document.getElementById(`exclude-text-${opt.key}`);
+      if (excludeFilters[opt.key]) {
+        textEl.textContent = `${opt.label} (${x})`;
+      } else {
+        const y = otherTrees.length - x;
+        textEl.textContent = `${opt.label} (${x}): ${y}`;
+      }
     });
   }
 
