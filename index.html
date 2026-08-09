@@ -741,6 +741,36 @@
     .tree-label .lbl-sci { display: block; font-size: 12px; font-style: italic; font-weight: 600; color: #1a1a1a; text-shadow: 0 0 3px white, 0 0 3px white, 0 0 3px white; line-height: 1.3; }
     .tree-label .lbl-com { display: block; font-size: 10px; color: #444; text-shadow: 0 0 3px white, 0 0 3px white, 0 0 3px white; line-height: 1.3; }
 
+    /* Nearby park markers (shown when zoomed out below street level) */
+    .park-marker-wrap {
+      display: flex;
+      align-items: center;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    .park-marker-dot {
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: #2d6a2d;
+      border: 2px solid white;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.3);
+      flex-shrink: 0;
+    }
+    .park-marker-label {
+      background: #2d6a2d;
+      color: white;
+      font-size: 11px;
+      font-weight: 600;
+      padding: 2px 7px;
+      border-radius: 3px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.3);
+      margin-left: 4px;
+    }
+    .park-popup { font-size: 13px; }
+    .park-popup b { display: block; margin-bottom: 4px; }
+    .park-popup a { color: #2a7ae2; }
+
     /* Popup styles */
     .tree-popup { font-size: 13px; line-height: 1.65; min-width: 180px; }
     .tree-popup h4 { font-size: 16px; margin-bottom: 6px; font-style: italic; color: #1a1a1a; user-select: all; }
@@ -2372,6 +2402,9 @@
   baseLayers['Street map'].addTo(map);
   const layerControl = L.control.layers(baseLayers, { 'Section layout': sectionLayer }, { position: 'bottomleft' }).addTo(map);
 
+  const parkMarkerLayer = L.layerGroup();
+  const PARK_ZOOM_THRESHOLD = 19; // park markers visible below this zoom level
+
   // ── KML LAYER ────────────────────────────────────────────────────────────────
   let pathsLayer = null;
   const kmlPolylines = [];
@@ -2875,6 +2908,47 @@
       }
     }
   }
+
+  // ── NEARBY PARKS ─────────────────────────────────────────────────────────────
+  function updateParkMarkersVisibility() {
+    if (map.getZoom() < PARK_ZOOM_THRESHOLD) {
+      if (!map.hasLayer(parkMarkerLayer)) parkMarkerLayer.addTo(map);
+    } else {
+      if (map.hasLayer(parkMarkerLayer)) parkMarkerLayer.remove();
+    }
+  }
+
+  function buildParkMarkers(parks) {
+    const currentUrl = (window.location.origin + window.location.pathname).replace(/\/+$/, '/');
+    parks.forEach(park => {
+      if (!park.lat || !park.lng || !park.url || !park.name) return;
+      if (park.url.replace(/\/+$/, '/') === currentUrl) return;
+      const icon = L.divIcon({
+        className: '',
+        html: `<div class="park-marker-wrap"><div class="park-marker-dot"></div><span class="park-marker-label">${esc(park.name)}</span></div>`,
+        iconSize: null,
+        iconAnchor: [9, 9]
+      });
+      const marker = L.marker([park.lat, park.lng], { icon });
+      marker.bindPopup(
+        `<div class="park-popup"><b>${esc(park.name)}</b><a href="${esc(park.url)}" target="_blank" rel="noopener">Open map ↗</a></div>`
+      );
+      parkMarkerLayer.addLayer(marker);
+    });
+  }
+
+  async function loadParkRegistry() {
+    try {
+      const resp = await fetch('https://raw.githubusercontent.com/fjordaan/park-treemap/main/registry.json');
+      if (!resp.ok) return;
+      const parks = await resp.json();
+      buildParkMarkers(parks);
+      updateParkMarkersVisibility();
+    } catch (e) {}
+  }
+
+  map.on('zoomend', updateParkMarkersVisibility);
+  loadParkRegistry();
 
   buildAerialPanel();
   buildTreeCountModal();
