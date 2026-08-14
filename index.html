@@ -758,6 +758,7 @@
       flex-shrink: 0;
     }
     .park-marker-label {
+      display: none;
       background: #2d6a2d;
       color: white;
       font-size: 11px;
@@ -766,6 +767,10 @@
       border-radius: 3px;
       box-shadow: 0 1px 4px rgba(0,0,0,0.3);
       margin-left: 4px;
+    }
+    #map.park-labels-visible .park-marker-label { display: block; }
+    @media (hover: hover) {
+      .park-marker-wrap:hover .park-marker-label { display: block; }
     }
     .park-popup { font-size: 13px; }
     .park-popup b { display: block; margin-bottom: 4px; }
@@ -1929,6 +1934,17 @@
   }
 
   function applyFilters() {
+    let excludeChanged = false;
+    EXCLUDE_OPTIONS.forEach(opt => {
+      if (excludeFilters[opt.key] && opt.conflictsWhen?.()) {
+        excludeFilters[opt.key] = false;
+        const cb = document.getElementById(`exclude-opt-${opt.key}`);
+        if (cb) cb.checked = false;
+        excludeChanged = true;
+      }
+    });
+    if (excludeChanged) localStorage.setItem('fc-treemap-exclude-filters', JSON.stringify(excludeFilters));
+
     let count = 0;
     markers.forEach((marker, tree) => {
       const show = matchesFilters(tree);
@@ -2321,10 +2337,14 @@
 
   // ── Tree count refine modal ────────────────────────────────────────────────
   const EXCLUDE_OPTIONS = [
-    { key: 'deadCondition', label: 'Exclude Condition: Dead', match: tree => tree['Condition'] === 'Dead' },
-    { key: 'shrubForm',     label: 'Exclude Form: Shrub',     match: tree => tree['Form'] === 'Shrub' },
-    { key: 'bushForm',      label: 'Exclude Form: Bush',      match: tree => tree['Form'] === 'Bush' },
-    { key: 'hedgeForm',     label: 'Exclude Form: Hedge',     match: tree => tree['Form'] === 'Hedge' },
+    { key: 'deadCondition', label: 'Exclude Condition: Dead', match: tree => tree['Condition'] === 'Dead',
+      conflictsWhen: () => [...document.querySelectorAll('.filter-condition:checked')].some(cb => cb.value === 'Dead') },
+    { key: 'shrubForm',     label: 'Exclude Form: Shrub',     match: tree => tree['Form'] === 'Shrub',
+      conflictsWhen: () => [...document.querySelectorAll('.filter-form:checked')].some(cb => cb.value === 'Shrub') },
+    { key: 'bushForm',      label: 'Exclude Form: Bush',      match: tree => tree['Form'] === 'Bush',
+      conflictsWhen: () => [...document.querySelectorAll('.filter-form:checked')].some(cb => cb.value === 'Bush') },
+    { key: 'hedgeForm',     label: 'Exclude Form: Hedge',     match: tree => tree['Form'] === 'Hedge',
+      conflictsWhen: () => [...document.querySelectorAll('.filter-form:checked')].some(cb => cb.value === 'Hedge') },
   ];
   const excludeFilters = { deadCondition: true, shrubForm: false, bushForm: false, hedgeForm: false };
   try {
@@ -2407,7 +2427,8 @@
   const layerControl = L.control.layers(baseLayers, { 'Section layout': sectionLayer }, { position: 'bottomleft' }).addTo(map);
 
   const parkMarkerLayer = L.layerGroup();
-  const PARK_ZOOM_THRESHOLD = 19; // park markers visible below this zoom level
+  const PARK_ZOOM_THRESHOLD = 19;  // dot visible below this zoom level
+  const PARK_LABEL_THRESHOLD = 18; // label visible below this zoom level (zoom 17 and below)
 
   // ── KML LAYER ────────────────────────────────────────────────────────────────
   let pathsLayer = null;
@@ -2915,11 +2936,13 @@
 
   // ── NEARBY PARKS ─────────────────────────────────────────────────────────────
   function updateParkMarkersVisibility() {
-    if (map.getZoom() < PARK_ZOOM_THRESHOLD) {
+    const zoom = map.getZoom();
+    if (zoom < PARK_ZOOM_THRESHOLD) {
       if (!map.hasLayer(parkMarkerLayer)) parkMarkerLayer.addTo(map);
     } else {
       if (map.hasLayer(parkMarkerLayer)) parkMarkerLayer.remove();
     }
+    map.getContainer().classList.toggle('park-labels-visible', zoom < PARK_LABEL_THRESHOLD);
   }
 
   function buildParkMarkers(parks) {
