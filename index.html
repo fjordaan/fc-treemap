@@ -107,6 +107,7 @@
     .watering-opt input { display: none; }
     .watering-opt-label { color: #1a1a1a; }
     .watering-opt-label em { font-style: normal; color: #555; }
+    .watering-opt-count { color: #888; font-size: 11px; }
     .watering-opt.selected { font-weight: 600; }
 
     /* Bigger tap targets for every row in the layers control (base layers, overlays, aerial section) */
@@ -1033,19 +1034,19 @@
       <p style="margin: 4px 4px 6px; font-size: 12px; color: #555; font-style: italic;">Select an option to highlight trees</p>
       <label class="watering-opt" onclick="selectWateringOpt(this, 'none', event)">
         <input type="radio" name="wf" value="none">
-        <span class="watering-opt-label">😢 Not being watered: <em>Volunteers needed!</em></span>
+        <span class="watering-opt-label">😢 Not being watered: <em>Volunteers needed!</em> <span class="watering-opt-count" id="watering-count-none"></span></span>
       </label>
       <label class="watering-opt" onclick="selectWateringOpt(this, '1', event)">
         <input type="radio" name="wf" value="1">
-        <span class="watering-opt-label">🥉 20 liters / week: <em>Volunteers needed!</em></span>
+        <span class="watering-opt-label">🥉 20 liters / week: <em>Volunteers needed!</em> <span class="watering-opt-count" id="watering-count-1"></span></span>
       </label>
       <label class="watering-opt" onclick="selectWateringOpt(this, '2', event)">
         <input type="radio" name="wf" value="2">
-        <span class="watering-opt-label">🥈 40 liters / week: <em>Almost there!</em></span>
+        <span class="watering-opt-label">🥈 40 liters / week: <em>Almost there!</em> <span class="watering-opt-count" id="watering-count-2"></span></span>
       </label>
       <label class="watering-opt" onclick="selectWateringOpt(this, '3', event)">
         <input type="radio" name="wf" value="3">
-        <span class="watering-opt-label">🥇 60 liters / week: <em>Sorted!</em></span>
+        <span class="watering-opt-label">🥇 60 liters / week: <em>Sorted!</em> <span class="watering-opt-count" id="watering-count-3"></span></span>
       </label>
     </div>
   </div>
@@ -2253,6 +2254,20 @@
     return tree['Watering 2026'].split(',').map(s => s.trim()).filter(Boolean).length;
   }
 
+  function updateWateringCounts() {
+    const total = markers.size;
+    const counts = { none: 0, '1': 0, '2': 0, '3': 0 };
+    markers.forEach((marker, tree) => {
+      const c = watererCount(tree);
+      const key = c === 0 ? 'none' : String(c);
+      if (key in counts) counts[key]++;
+    });
+    Object.entries(counts).forEach(([key, n]) => {
+      const el = document.getElementById('watering-count-' + key);
+      if (el) el.textContent = `(${n}/${total})`;
+    });
+  }
+
   function matchesWateringOpt(tree) {
     if (!activeWateringOpt) return false;
     const count = watererCount(tree);
@@ -2942,6 +2957,7 @@
     buildFilters(trees);
     applyUrlFilters();
     applyFilters(); // ensures persisted exclude-filter state is respected even with no URL params
+    updateWateringCounts();
     if (COLOUR_TOOL) buildColourTool(trees);
 
     // Open popup for a specific tree if ?ref= is in the URL
