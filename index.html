@@ -2275,11 +2275,7 @@
 
   // ── MAP SETUP ────────────────────────────────────────────────────────────────
   const SHEET_ID = '16056CHjRL4-hbd4hbIb1czvrryGKcwMFYWCDeMDDAHM';
-  // Using the "Publish to web" CSV link instead of /export?format=csv — the live export
-  // endpoint could take 10+ seconds to respond after the sheet hadn't been fetched in a
-  // while (Google re-rendering the export cold), while the published link serves from a
-  // snapshot that's only regenerated when the sheet changes (auto-republish is enabled).
-  const CSV_URL  = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTDm3_pa5KQBwt_lTLhfrh0zf8Fo1r-rDPFQ8LXRL4L5dmxn3XPQFwiioWKSKYLZ4lelgfJJKZUTSJN/pub?gid=1708122838&single=true&output=csv';
+  const CSV_URL  = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv`;
 
   const baseLayers = {
     'Street map': L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
