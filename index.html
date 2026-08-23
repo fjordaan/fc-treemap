@@ -445,7 +445,8 @@
     @media (min-width: 768px) {
       #tree-count-handle { display: none; }
     }
-    #tree-count-modal h3 { margin: 0 0 14px; font-size: 15px; color: #1a1a1a; }
+    #tree-count-modal h3 { margin: 0 0 8px; font-size: 15px; color: #1a1a1a; }
+    #tree-count-modal .modal-subtitle { margin: 0 0 14px; font-size: 12px; line-height: 1.4; color: #777; }
     .exclude-opt {
       display: flex;
       align-items: center;
@@ -948,6 +949,28 @@
     #lightbox.loading #lightbox-img { opacity: 0; }
     @keyframes lb-spin { to { transform: rotate(360deg); } }
 
+    #map-loading {
+      position: absolute;
+      top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      z-index: 1001;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
+      color: #666;
+      font-size: 14px;
+      pointer-events: none;
+    }
+    #map-loading.hidden { display: none; }
+    #map-loading-spinner {
+      width: 32px; height: 32px;
+      border: 3px solid rgba(0,0,0,0.15);
+      border-top-color: #3B7A5C;
+      border-radius: 50%;
+      animation: lb-spin 0.7s linear infinite;
+    }
+
     /* ── COLOUR TOOL (dev only, activated via ?devcolours) ── */
     #colour-tool {
       position: absolute; top: 0; left: 0; bottom: 0; width: 320px;
@@ -997,6 +1020,7 @@
 </head>
 <body>
   <div id="map"></div>
+  <div id="map-loading"><div id="map-loading-spinner"></div><span>Loading tree data…</span></div>
   <div id="map-dim" onclick="togglePanel()"></div>
   <div id="add-toast">Copied!</div>
   <div id="hover-label"></div>
@@ -1177,6 +1201,7 @@
   <div id="tree-count-modal">
     <div id="tree-count-handle"></div>
     <h3>Refine tree count (currently <span id="tree-count-modal-total">0</span>)</h3>
+    <p class="modal-subtitle">Exclude categories below from the count shown on the map – trees stay visible, they're just not counted.</p>
     <div id="tree-count-options"></div>
     <div class="tree-count-modal-actions">
       <button type="button" class="btn-cancel-modal" onclick="closeTreeCountModal()">Done</button>
@@ -2857,10 +2882,12 @@
       if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
       text = await resp.text();
     } catch (err) {
+      document.getElementById('map-loading').classList.add('hidden');
       document.getElementById('tree-count').textContent = 'Failed to load data';
       console.error('Could not fetch tree data:', err);
       return;
     }
+    document.getElementById('map-loading').classList.add('hidden');
 
     const rows = parseCSV(text);
     if (rows.length < 2) {
