@@ -2257,9 +2257,12 @@
   }
 
   function updateWateringCounts() {
-    const total = markers.size;
+    // Only "New" trees are eligible while the watering panel is open (see
+    // matchesFilters' wateringPanelOpen branch), so counts are out of that subset.
+    const newTrees = [...markers.keys()].filter(tree => parseTags(tree['Tag']).some(isNewTag));
+    const total = newTrees.length;
     const counts = { none: 0, '1': 0, '2': 0, '3': 0 };
-    markers.forEach((marker, tree) => {
+    newTrees.forEach(tree => {
       const c = watererCount(tree);
       const key = c === 0 ? 'none' : String(c);
       if (key in counts) counts[key]++;
