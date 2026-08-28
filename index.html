@@ -774,9 +774,11 @@
     @media (hover: hover) {
       .park-marker-wrap:hover .park-marker-label { display: block; }
     }
-    .park-popup { font-size: 13px; }
+    .park-popup { font-size: 13px; display: flex; align-items: center; gap: 8px; }
+    .park-popup-icon { width: 32px; height: 32px; border-radius: 6px; object-fit: cover; flex-shrink: 0; }
     .park-popup b { display: block; margin-bottom: 4px; }
     .park-popup a { color: #2a7ae2; }
+    .park-popup-arrow { text-decoration: none; display: inline-block; }
 
     /* Popup styles */
     .tree-popup { font-size: 13px; line-height: 1.65; min-width: 180px; }
@@ -3001,8 +3003,12 @@
         iconAnchor: [9, 9]
       });
       const marker = L.marker([park.lat, park.lng], { icon });
+      const iconUrl = new URL('icons/icon-192.png', park.url).href;
       marker.bindPopup(
-        `<div class="park-popup"><b>${esc(park.name)}</b><a href="${esc(park.url)}" target="_blank" rel="noopener">Open map ↗</a></div>`
+        `<div class="park-popup">` +
+          `<img class="park-popup-icon" src="${esc(iconUrl)}" alt="" onerror="this.remove()">` +
+          `<div><b>${esc(park.name)}</b><a href="${esc(park.url)}" target="_blank" rel="noopener">Open map <span class="park-popup-arrow">↗</span></a></div>` +
+        `</div>`
       );
       parkMarkerLayer.addLayer(marker);
     });
