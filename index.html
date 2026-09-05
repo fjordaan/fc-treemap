@@ -1898,7 +1898,14 @@
     });
   }
 
-  function matchesFilters(tree, skipExcludeKey) {
+  // Whether a tree is currently hidden from the tree-count total by a
+  // "Refine tree count" exclude setting (e.g. the default Exclude Dead).
+  // This never affects marker visibility — only the count.
+  function isRefineExcluded(tree) {
+    return EXCLUDE_OPTIONS.some(opt => excludeFilters[opt.key] && opt.match(tree));
+  }
+
+  function matchesFilters(tree) {
     if (wateringPanelOpen) return parseTags(tree['Tag']).some(isNewTag);
     const sciFilter    = document.getElementById('filter-sci').value;
     const commonFilter = document.getElementById('filter-common').value;
@@ -1941,7 +1948,6 @@
       const months = (tree['Months'] || '').split(',').map(m => m.trim());
       if (!months.includes(selectedMonth)) return false;
     }
-    if (EXCLUDE_OPTIONS.some(opt => opt.key !== skipExcludeKey && excludeFilters[opt.key] && opt.match(tree))) return false;
     return true;
   }
 
@@ -1978,7 +1984,7 @@
     let count = 0;
     markers.forEach((marker, tree) => {
       const show = matchesFilters(tree);
-      if (show) count++;
+      if (show && !isRefineExcluded(tree)) count++;
       const visible = show && !hideMarkers;
       if (visible) {
         if (!map.hasLayer(marker)) marker.addTo(map);
@@ -2020,7 +2026,11 @@
       // effect — so x means "how many trees this rule excludes" whether it's checked or not,
       // rather than always reading 0 once its own exclusion has already removed them.
       const otherTrees = [];
-      markers.forEach((marker, tree) => { if (matchesFilters(tree, opt.key)) otherTrees.push(tree); });
+      markers.forEach((marker, tree) => {
+        if (!matchesFilters(tree)) return;
+        if (EXCLUDE_OPTIONS.some(o => o.key !== opt.key && excludeFilters[o.key] && o.match(tree))) return;
+        otherTrees.push(tree);
+      });
       const x = otherTrees.filter(opt.match).length;
       const textEl = document.getElementById(`exclude-text-${opt.key}`);
       if (excludeFilters[opt.key]) {
