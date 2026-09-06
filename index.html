@@ -1769,16 +1769,17 @@
     const tagCounts = {}, newTagCounts = {}, condCounts = {}, formCounts = {};
 
     for (const tree of trees) {
+      const cond  = tree['Condition'];
+      const form  = tree['Form'];
+      if (cond) condCounts[cond] = (condCounts[cond] || 0) + 1;
+      if (form) formCounts[form] = (formCounts[form] || 0) + 1;
+      if (isRefineExcluded(tree)) continue;
       const sci   = tree['Scientific name'];
       const com   = tree['Common name'];
       const short = tree['Short name'];
-      const cond  = tree['Condition'];
-      const form  = tree['Form'];
       if (sci)   sciCounts[sci]     = (sciCounts[sci]     || 0) + 1;
       if (com)   commonCounts[com]  = (commonCounts[com]  || 0) + 1;
       if (short) shortCounts[short] = (shortCounts[short] || 0) + 1;
-      if (cond)  condCounts[cond]   = (condCounts[cond]   || 0) + 1;
-      if (form)  formCounts[form]   = (formCounts[form]   || 0) + 1;
       for (const tag of parseTags(tree['Tag'])) {
         if (isNewTag(tag)) newTagCounts[tag] = (newTagCounts[tag] || 0) + 1;
         else               tagCounts[tag]    = (tagCounts[tag]    || 0) + 1;
@@ -1821,7 +1822,8 @@
     fillCheckboxes('filter-conditions', condCounts, 'filter-condition');
     fillCheckboxes('filter-forms',      formCounts, 'filter-form');
 
-    const nonNativeCount = trees.filter(t => {
+    const countableTrees = trees.filter(t => !isRefineExcluded(t));
+    const nonNativeCount = countableTrees.filter(t => {
       const tags = (t['Tag'] || '').split(',').map(s => s.trim()).filter(Boolean);
       return !tags.some(tag => /\bnative\b/i.test(tag));
     }).length;
@@ -1829,7 +1831,7 @@
     const selfSownCb = [...document.querySelectorAll('#filter-tags .filter-tag')]
       .find(cb => /\bself.sown\b/i.test(cb.value));
     if (selfSownCb) {
-      const hideSelfSownCount = trees.filter(t => {
+      const hideSelfSownCount = countableTrees.filter(t => {
         const tags = (t['Tag'] || '').split(',').map(s => s.trim()).filter(Boolean);
         return !tags.some(tag => /\bself.sown\b/i.test(tag));
       }).length;
