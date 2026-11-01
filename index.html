@@ -3060,6 +3060,17 @@
     lbIndex  = index;
     showLightboxPhoto();
     document.getElementById('lightbox').classList.add('open');
+    preloadOtherLightboxPhotos();
+  }
+
+  // Warm the cache for the tree's other photos so stepping through them
+  // doesn't wait on a fresh request each time.
+  function preloadOtherLightboxPhotos() {
+    lbPhotos.forEach((raw, i) => {
+      if (i === lbIndex) return;
+      const img = new Image();
+      img.src = googlePhotoUrl(raw, 'w1600');
+    });
   }
 
   function lbSetOverlaysFixed(fixed) {
