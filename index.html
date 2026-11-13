@@ -68,6 +68,7 @@
       0%   { transform: translateX(-50%) translateY(-56px); opacity: 0; }
       100% { transform: translateX(-50%) translateY(0);     opacity: 1; }
     }
+    body:not(.watering-mode) #watering-filter { display: none; }
     #watering-filter {
       position: absolute;
       top: 10px;
@@ -1151,6 +1152,10 @@
           <input type="checkbox" id="filter-show-labels" onchange="updateLabels()">
           Show labels when zoomed in
         </label>
+        <label class="checkbox-item">
+          <input type="checkbox" id="filter-watering-mode" onchange="setWateringMode(this.checked)">
+          Show tree watering
+        </label>
       </div>
     </div>
 
@@ -1714,7 +1719,7 @@
     html += row('Ref',              tree['Ref']);
     html += row('FCF number',       tree['FCF number']);
 
-    if (tags.some(isNewTag)) {
+    if (wateringMode && tags.some(isNewTag)) {
       const waterers = tree['Watering 2026'] ? tree['Watering 2026'].split(',').map(s => s.trim()).filter(Boolean) : [];
       let statusHtml;
       if (waterers.length === 0) {
@@ -2095,6 +2100,7 @@
     if (document.getElementById('filter-hide-self-sown')?.checked) params.set('hidesselfsown', '1');
     if (document.getElementById('filter-non-native').checked)  params.set('nonnative',   '1');
     if (document.getElementById('filter-show-labels').checked) params.set('showlabels', '1');
+    if (wateringMode !== WATERING_MODE_DEFAULT) params.set('watering', wateringMode ? '1' : '0');
     const month = getSelectedMonth();
     if (month) params.set('month', month);
     if (map.hasLayer(baseLayers['Satellite']))  params.set('satellite', '1');
@@ -2158,6 +2164,7 @@
     if (params.get('hidesselfsown') === '1' && hideSelfSownEl) hideSelfSownEl.checked = true;
     if (params.get('nonnative')   === '1') document.getElementById('filter-non-native').checked  = true;
     if (params.get('showlabels') === '1') document.getElementById('filter-show-labels').checked = true;
+    if (params.has('watering')) setWateringMode(params.get('watering') === '1');
     if (params.has('month')) {
       const cb = document.querySelector(`#filter-months input[value="${params.get('month')}"]`);
       if (cb) { cb.checked = true; cb.closest('.month-btn').classList.add('selected'); }
@@ -2215,8 +2222,21 @@
     searchDebounceTimer = setTimeout(applyFilters, 120);
   }
 
+  // Tree watering features (top panel + popup status). Off by default outside
+  // the watering season; set to true to show them again for everyone, or use
+  // the "Show tree watering" toggle / ?watering=1 to demo them.
+  const WATERING_MODE_DEFAULT = false;
+  let wateringMode = WATERING_MODE_DEFAULT;
   let activeWateringOpt = null;
   let wateringPanelOpen = false;
+
+  function setWateringMode(on) {
+    wateringMode = on;
+    document.getElementById('filter-watering-mode').checked = on;
+    document.body.classList.toggle('watering-mode', on);
+    if (!on && wateringPanelOpen) toggleWateringFilter();
+    markers.forEach((marker, tree) => marker.setPopupContent(buildPopup(tree)));
+  }
 
   function toggleWateringFilter() {
     const opts  = document.getElementById('watering-filter-options');
@@ -2974,6 +2994,7 @@
     updateLabels();
 
     buildFilters(trees);
+    setWateringMode(WATERING_MODE_DEFAULT);
     applyUrlFilters();
     applyFilters(); // ensures persisted exclude-filter state is respected even with no URL params
     updateWateringCounts();
