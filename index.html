@@ -281,15 +281,15 @@
     #btn-cancel-add-tree { flex: 0 0 auto; font-weight: bold; color: #888; }
 
     /* Add tree modal */
-    #add-tree-backdrop {
+    #add-tree-backdrop, #edit-tree-backdrop {
       display: none;
       position: fixed;
       inset: 0;
       z-index: 3000;
       background: rgba(0,0,0,0.4);
     }
-    #add-tree-backdrop.open { display: block; }
-    #add-tree-modal {
+    #add-tree-backdrop.open, #edit-tree-backdrop.open { display: block; }
+    #add-tree-modal, #edit-tree-modal {
       position: fixed;
       z-index: 3001;
       background: white;
@@ -298,7 +298,7 @@
     }
     /* Desktop: centred modal */
     @media (min-width: 768px) {
-      #add-tree-modal {
+      #add-tree-modal, #edit-tree-modal {
         top: 50%;
         left: 50%;
         transform: translate(-50%, -50%);
@@ -310,7 +310,7 @@
     }
     /* Mobile: bottom sheet */
     @media (max-width: 767px) {
-      #add-tree-modal {
+      #add-tree-modal, #edit-tree-modal {
         bottom: 0; left: 0; right: 0;
         border-radius: 14px 14px 0 0;
         max-height: 85vh;
@@ -319,20 +319,20 @@
         transition: transform 0.3s ease;
         padding-bottom: 28px;
       }
-      #add-tree-modal.open { transform: translateY(0); }
+      #add-tree-modal.open, #edit-tree-modal.open { transform: translateY(0); }
     }
     @media (min-width: 768px) {
-      #add-tree-modal { display: none; }
-      #add-tree-modal.open { display: block; }
+      #add-tree-modal, #edit-tree-modal { display: none; }
+      #add-tree-modal.open, #edit-tree-modal.open { display: block; }
     }
-    #add-tree-handle { width: 40px; height: 4px; background: #ddd; border-radius: 2px; margin: 0 auto 16px; }
-    #add-tree-modal h3 { margin: 0 0 14px; font-size: 15px; color: #1a1a1a; display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+    #add-tree-handle, #edit-tree-handle { width: 40px; height: 4px; background: #ddd; border-radius: 2px; margin: 0 auto 16px; }
+    #add-tree-modal h3, #edit-tree-modal h3 { margin: 0 0 14px; font-size: 15px; color: #1a1a1a; display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
     #add-tree-coords-display { font-size: 11px; font-weight: 400; color: #999; }
-    #add-tree-form label { display: block; font-size: 12px; font-weight: 600; color: #555; margin-bottom: 10px; }
-    #add-tree-form label .field-hint { display: block; font-weight: 400; font-size: 11px; color: #888; margin-bottom: 2px; }
-    #add-tree-form input[type=text],
-    #add-tree-form select,
-    #add-tree-form textarea {
+    .tree-form label { display: block; font-size: 12px; font-weight: 600; color: #555; margin-bottom: 10px; }
+    .tree-form label .field-hint { display: block; font-weight: 400; font-size: 11px; color: #888; margin-bottom: 2px; }
+    .tree-form input[type=text],
+    .tree-form select,
+    .tree-form textarea {
       width: 100%;
       box-sizing: border-box;
       border: 1px solid #ddd;
@@ -342,13 +342,13 @@
       font-family: inherit;
       margin-top: 3px;
     }
-    #add-tree-form textarea { resize: vertical; }
-    #add-tree-form input::placeholder,
-    #add-tree-form textarea::placeholder { color: #aaa; }
-    #add-tree-form .tagify { --placeholder-color: #aaa; }
+    .tree-form textarea { resize: vertical; }
+    .tree-form input::placeholder,
+    .tree-form textarea::placeholder { color: #aaa; }
+    .tree-form .tagify { --placeholder-color: #aaa; }
     /* Tagify integration */
-    #add-tree-form .tagify__tag { margin-block: 3px; }
-    #add-tree-form .tagify {
+    .tree-form .tagify__tag { margin-block: 3px; }
+    .tree-form .tagify {
       width: 100%;
       box-sizing: border-box;
       border: 1px solid #ddd;
@@ -365,16 +365,16 @@
       --tags-border-color: #ddd;
       --tags-focus-border-color: #5a9e7a;
     }
-    #add-tree-form .tagify__input {
+    .tree-form .tagify__input {
       font-size: 16px; /* prevent iOS zoom */
       font-family: inherit;
       font-weight: normal;
     }
-    #add-tree-form .tagify__dropdown {
+    .tree-form .tagify__dropdown {
       font-size: 14px;
       font-family: inherit;
     }
-    #add-tree-form .tagify__dropdown.tags-look .tagify__dropdown__item {
+    .tree-form .tagify__dropdown.tags-look .tagify__dropdown__item {
       display: inline-flex;
       margin: 3px;
       border-radius: 10px;
@@ -384,23 +384,37 @@
     .add-tree-year-row { display: flex; gap: 8px; }
     .add-tree-year-row label { flex: 1; }
     .add-tree-more-row { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; margin: 10px 0 4px; }
-    #btn-more-fields { background: none; border: none; cursor: pointer; font-size: 12px; color: #2a7ae2; padding: 0; }
-    #btn-more-fields:hover { text-decoration: underline; }
+    #btn-more-fields, #btn-edit-more-fields { background: none; border: none; cursor: pointer; font-size: 12px; color: #2a7ae2; padding: 0; }
+    #btn-more-fields:hover, #btn-edit-more-fields:hover { text-decoration: underline; }
     .add-tree-more-hint { font-size: 11px; color: #aaa; }
     .add-tree-actions { display: flex; align-items: center; gap: 8px; margin-top: 14px; }
-    #btn-add-tree-submit {
+    #btn-add-tree-submit, #btn-edit-tree-submit {
       font-size: 13px; padding: 7px 18px; cursor: pointer;
       border: 1px solid #5a9e7a; border-radius: 6px;
       background: #e8f4ec; color: #3a6e52; font-weight: 600;
     }
-    #btn-add-tree-submit:hover { background: #d4ecdf; }
-    #btn-add-tree-submit:disabled { opacity: 0.6; cursor: default; }
+    #btn-add-tree-submit:hover, #btn-edit-tree-submit:hover { background: #d4ecdf; }
+    #btn-add-tree-submit:disabled, #btn-edit-tree-submit:disabled { opacity: 0.6; cursor: default; }
     .btn-cancel-modal {
       font-size: 12px; padding: 7px 14px; cursor: pointer;
       border: 1px solid #ccc; border-radius: 6px; background: #f5f5f5;
     }
     .btn-cancel-modal:hover { background: #e8e8e8; }
-    #add-tree-status { font-size: 12px; color: #666; margin-left: auto; }
+    #add-tree-status, #edit-tree-status { font-size: 12px; color: #666; margin-left: auto; }
+    .btn-delete-tree {
+      font-size: 12px; padding: 7px 14px; cursor: pointer;
+      border: 1px solid #c0392b; border-radius: 6px;
+      background: #fdf2f2; color: #c0392b;
+    }
+    .btn-delete-tree:hover { background: #f5d5d5; }
+    .btn-reposition-tree {
+      font-size: 12px; padding: 7px 14px; cursor: pointer;
+      border: 1px solid #2a7ae2; border-radius: 6px;
+      background: #eaf1fb; color: #2a7ae2;
+    }
+    .btn-reposition-tree:hover { background: #d5e8f7; }
+    .popup-edit-btn { flex-shrink: 0; background: none; border: none; padding: 0; cursor: pointer; color: #888; display: flex; align-items: center; }
+    .popup-edit-btn:hover { color: #333; }
 
     /* ── Tree count refine modal ─────────────────────────────────────────────── */
     #tree-count-backdrop {
@@ -1249,7 +1263,7 @@
   <div id="add-tree-modal">
     <div id="add-tree-handle"></div>
     <h3>Add a tree <span id="add-tree-coords-display"></span></h3>
-    <form id="add-tree-form" onsubmit="submitAddTree(event)" novalidate autocomplete="off">
+    <form id="add-tree-form" class="tree-form" onsubmit="submitAddTree(event)" novalidate autocomplete="off">
       <input type="hidden" name="lat" id="add-tree-lat">
       <input type="hidden" name="lng" id="add-tree-lng">
       <label>Scientific name
@@ -1289,6 +1303,64 @@
         <button type="button" class="btn-cancel-modal" onclick="closeAddTreeModal()">Cancel</button>
         <span id="add-tree-status"></span>
         <button type="submit" id="btn-add-tree-submit">Submit</button>
+      </div>
+    </form>
+  </div>
+
+  <div id="edit-tree-backdrop" onclick="closeEditTreeModal()"></div>
+  <div id="edit-tree-modal">
+    <div id="edit-tree-handle"></div>
+    <h3>Edit tree</h3>
+    <form id="edit-tree-form" class="tree-form" onsubmit="submitEditTree(event)" novalidate autocomplete="off">
+      <input type="hidden" name="ref" id="edit-tree-ref">
+      <label>Scientific name
+        <input name="sci" type="text" list="edit-tree-sci-list" placeholder="e.g. Quercus robur" autocomplete="off">
+        <datalist id="edit-tree-sci-list"></datalist>
+      </label>
+      <label>Common name
+        <input name="common" type="text" placeholder="e.g. English oak">
+      </label>
+      <label>Short name
+        <span class="field-hint">Label shown on the map (defaults to scientific name if blank)</span>
+        <input name="short_name" type="text" placeholder="e.g. Oak">
+      </label>
+      <label>Tags
+        <input name="tag" id="edit-tree-tag-input" placeholder="Add tags…">
+      </label>
+      <label>Notes
+        <textarea name="notes" rows="3" placeholder="Any observations…"></textarea>
+      </label>
+      <div id="edit-tree-extra-fields" style="display:none">
+        <label>Other names
+          <input name="other_names" type="text" placeholder="e.g. Common oak, Pedunculate oak">
+        </label>
+        <div class="add-tree-year-row">
+          <label>Year planted
+            <input name="year_planted" type="text" inputmode="numeric" placeholder="e.g. 2021">
+          </label>
+          <label>Est. year planted
+            <input name="est_year_planted" type="text" inputmode="numeric" placeholder="e.g. 2015">
+          </label>
+          <label>Year died
+            <input name="year_died" type="text" inputmode="numeric" placeholder="e.g. 2024">
+          </label>
+        </div>
+        <label>Form
+          <input name="form" id="edit-tree-form-input" placeholder="e.g. Standard">
+        </label>
+        <label>Condition
+          <input name="condition" id="edit-tree-condition-input" placeholder="e.g. Good">
+        </label>
+      </div>
+      <div class="add-tree-more-row">
+        <button type="button" id="btn-edit-more-fields" onclick="toggleEditMoreFields()">+ More fields&hellip;</button>
+      </div>
+      <div class="add-tree-actions">
+        <button type="button" class="btn-cancel-modal" onclick="closeEditTreeModal()">Cancel</button>
+        <button type="button" class="btn-delete-tree" onclick="deleteCurrentEditTree()">Delete</button>
+        <button type="button" class="btn-reposition-tree" onclick="startReposition()">Reposition</button>
+        <span id="edit-tree-status"></span>
+        <button type="submit" id="btn-edit-tree-submit">Save</button>
       </div>
     </form>
   </div>
@@ -1782,11 +1854,15 @@
 
     let html = `<div class="tree-popup">`;
     const treeRef = (tree['Ref'] || '').replace(/'/g, '\\\'');
+    const editBtn = (canContribute() && tree['Ref'])
+      ? `<button class="popup-edit-btn" onclick="openEditTreeModal('${treeRef}')" title="Edit this tree"><svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>`
+      : '';
     html += `<div style="display:flex;align-items:center;gap:6px;margin-bottom:6px">` +
       `<h4 style="margin-bottom:0">${esc(tree['Scientific name'] || '(unknown)')}</h4>` +
       `<button onclick="copyTreeLink('${treeRef}')" title="Copy link to this tree" style="flex-shrink:0;background:none;border:none;padding:0;cursor:pointer;color:#2a7ae2;display:flex;align-items:center">` +
         `<svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>` +
       `</button>` +
+      editBtn +
     `</div>`;
 
     const photos = parsePhotos(tree['Photo']);
@@ -3073,14 +3149,13 @@
       const icon   = makeIcon(tree, colour);
       const marker = L.marker([lat, lng], { icon });
       marker.bindPopup(buildPopup(tree), { maxWidth: 320 });
-      const sci = tree['Scientific name'] || '';
-      const com = tree['Common name'] || '';
-      const short = tree['Short name'] || sci;
-      const labelHtml = `<span class="lbl-sci">${sci}</span>${com ? `<span class="lbl-com">${com}</span>` : ''}`;
+      const short = tree['Short name'] || tree['Scientific name'] || '';
       marker.bindTooltip(short, { permanent: true, direction: 'right', className: 'tree-label', opacity: 1, offset: [8, 0] });
       marker.on('mouseover', () => {
+        const sci = tree['Scientific name'] || '';
+        const com = tree['Common name'] || '';
         const el = document.getElementById('hover-label');
-        el.innerHTML = labelHtml;
+        el.innerHTML = `<span class="lbl-sci">${sci}</span>${com ? `<span class="lbl-com">${com}</span>` : ''}`;
         el.classList.add('visible');
       });
       marker.on('mouseout', () => {
@@ -3699,6 +3774,204 @@
     document.getElementById('btn-click-map-label').textContent = window.innerWidth <= 767 ? 'Tap on map' : 'Click on map';
   }
 
+  // ── Edit / delete / reposition an existing tree ──────────────────────────────
+  let tagifyEditTags      = null;
+  let tagifyEditFormField = null;
+  let tagifyEditCondition = null;
+  let repositionTarget    = null; // { ref, tree, marker } while choosing a new location
+
+  function treeLabel(tree) {
+    return tree['Scientific name'] || tree['Common name'] || '(unknown)';
+  }
+
+  function findTreeByRef(ref) {
+    let found = null;
+    markers.forEach((_marker, t) => { if (!found && t['Ref'] === ref) found = t; });
+    return found;
+  }
+
+  // Single-value Tagify field (Form, Condition) with suggestions from every tree.
+  function makeEditTagify(existing, inputId, values, maxItems, opts) {
+    if (!existing) {
+      return new Tagify(document.getElementById(inputId), {
+        whitelist: values, enforceWhitelist: false, ...opts,
+        dropdown: { enabled: 0, maxItems, classname: 'tags-look', closeOnSelect: !!opts.maxTags, highlightFirst: false }
+      });
+    }
+    existing.settings.whitelist = values;
+    existing.removeAllTags();
+    return existing;
+  }
+
+  function openEditTreeModal(ref) {
+    if (!canContribute()) return;
+    const tree = findTreeByRef(ref);
+    if (!tree) return;
+
+    document.getElementById('edit-tree-ref').value = ref;
+    const form = document.getElementById('edit-tree-form');
+    form.elements['sci'].value              = tree['Scientific name']   || '';
+    form.elements['common'].value           = tree['Common name']       || '';
+    form.elements['short_name'].value       = tree['Short name']        || '';
+    form.elements['other_names'].value      = tree['Other names']       || '';
+    form.elements['notes'].value            = tree['Notes']             || '';
+    form.elements['year_planted'].value     = tree['Year planted']      || '';
+    form.elements['est_year_planted'].value = tree['Est. year planted'] || '';
+    form.elements['year_died'].value        = tree['Year died']         || '';
+    document.getElementById('edit-tree-status').textContent = '';
+    document.getElementById('btn-edit-tree-submit').disabled = false;
+
+    const all = [...markers.keys()];
+    const dl = document.getElementById('edit-tree-sci-list');
+    if (!dl.children.length) {
+      [...new Set(all.map(t => (t['Scientific name'] || '').trim()).filter(Boolean))].sort()
+        .forEach(sp => { const o = document.createElement('option'); o.value = sp; dl.appendChild(o); });
+    }
+    const distinct = key => [...new Set(all.map(t => (t[key] || '').trim()).filter(Boolean))].sort();
+
+    tagifyEditTags = makeEditTagify(tagifyEditTags, 'edit-tree-tag-input',
+      [...new Set(all.flatMap(t => parseTags(t['Tag'])))].sort(), 100, {});
+    const currentTags = parseTags(tree['Tag']);
+    if (currentTags.length) tagifyEditTags.addTags(currentTags);
+
+    tagifyEditFormField = makeEditTagify(tagifyEditFormField, 'edit-tree-form-input', distinct('Form'), 50, { maxTags: 1 });
+    if (tree['Form']) tagifyEditFormField.addTags([tree['Form']]);
+
+    tagifyEditCondition = makeEditTagify(tagifyEditCondition, 'edit-tree-condition-input', distinct('Condition'), 20, { maxTags: 1 });
+    if (tree['Condition']) tagifyEditCondition.addTags([tree['Condition']]);
+
+    document.getElementById('edit-tree-extra-fields').style.display = 'none';
+    document.getElementById('btn-edit-more-fields').textContent = '+ More fields…';
+
+    document.getElementById('edit-tree-backdrop').classList.add('open');
+    document.getElementById('edit-tree-modal').classList.add('open');
+    setTimeout(() => form.elements['sci'].focus(), 350);
+  }
+
+  function closeEditTreeModal() {
+    document.getElementById('edit-tree-backdrop').classList.remove('open');
+    document.getElementById('edit-tree-modal').classList.remove('open');
+  }
+
+  function isEditTreeModalOpen() {
+    return document.getElementById('edit-tree-modal').classList.contains('open');
+  }
+
+  function toggleEditMoreFields() {
+    const extra = document.getElementById('edit-tree-extra-fields');
+    const btn   = document.getElementById('btn-edit-more-fields');
+    const open  = extra.style.display === 'none';
+    extra.style.display = open ? '' : 'none';
+    btn.textContent = open ? '− Less fields…' : '+ More fields…';
+  }
+
+  async function submitEditTree(e) {
+    e.preventDefault();
+    const form   = document.getElementById('edit-tree-form');
+    const btn    = document.getElementById('btn-edit-tree-submit');
+    const status = document.getElementById('edit-tree-status');
+    const ref    = document.getElementById('edit-tree-ref').value;
+    btn.disabled = true;
+    status.textContent = 'Saving…';
+
+    const payload = {
+      action:           'editTree',
+      token:            readContributorToken(),
+      ref,
+      sci:              form.elements['sci'].value.trim(),
+      common:           form.elements['common'].value.trim(),
+      short_name:       form.elements['short_name'].value.trim(),
+      other_names:      form.elements['other_names'].value.trim(),
+      tag:              tagifyEditTags      ? tagifyEditTags.value.map(t => t.value).join(', ')  : '',
+      notes:            form.elements['notes'].value.trim(),
+      year_planted:     form.elements['year_planted'].value.trim(),
+      est_year_planted: form.elements['est_year_planted'].value.trim(),
+      year_died:        form.elements['year_died'].value.trim(),
+      form_field:       tagifyEditFormField ? (tagifyEditFormField.value[0] || {}).value || '' : '',
+      condition:        tagifyEditCondition ? (tagifyEditCondition.value[0] || {}).value || '' : ''
+    };
+    // Post-edit name, so the History entry matches the tree as it now appears.
+    payload.tree = payload.sci || payload.common || '(unknown)';
+
+    try {
+      await postToScript(payload);
+
+      // Update the in-memory tree, its popup and map label to match.
+      const tree = findTreeByRef(ref);
+      if (tree) {
+        tree['Scientific name']   = payload.sci;
+        tree['Common name']       = payload.common;
+        tree['Short name']        = payload.short_name;
+        tree['Other names']       = payload.other_names;
+        tree['Tag']               = payload.tag;
+        tree['Notes']             = payload.notes;
+        tree['Year planted']      = payload.year_planted;
+        tree['Est. year planted'] = payload.est_year_planted;
+        tree['Year died']         = payload.year_died;
+        tree['Form']              = payload.form_field;
+        tree['Condition']         = payload.condition;
+        const marker = markers.get(tree);
+        marker.setPopupContent(buildPopup(tree));
+        marker.getTooltip()?.setContent(payload.short_name || payload.sci || '');
+        updateLabels();
+      }
+
+      status.textContent = 'Saved!';
+      setTimeout(() => closeEditTreeModal(), 1200);
+    } catch (err) {
+      status.textContent = 'Error saving: ' + err.message;
+      btn.disabled = false;
+    }
+  }
+
+  function deleteCurrentEditTree() {
+    deleteTree(document.getElementById('edit-tree-ref').value);
+  }
+
+  async function deleteTree(ref) {
+    if (!canContribute() || !ref) return;
+    const tree = findTreeByRef(ref);
+    if (!tree) return;
+    if (!confirm(`Delete this tree (${treeLabel(tree)}) from the spreadsheet? This cannot be undone.`)) return;
+    try {
+      await postToScript({ action: 'deleteTree', token: readContributorToken(), ref, tree: treeLabel(tree) });
+    } catch (err) {
+      showToast('Failed to delete tree: ' + err.message);
+      return;
+    }
+    closeEditTreeModal();
+    const marker = markers.get(tree);
+    if (marker) { marker.closePopup(); map.removeLayer(marker); }
+    markers.delete(tree);
+    applyFilters();
+    showToast('Tree deleted.');
+  }
+
+  function startReposition() {
+    const ref  = document.getElementById('edit-tree-ref').value;
+    const tree = findTreeByRef(ref);
+    if (!tree) return;
+    const marker = markers.get(tree);
+    closeEditTreeModal();
+    marker.closePopup();
+    repositionTarget = { ref, tree, marker };
+    document.getElementById('map').classList.add('add-mode');
+    const toast = document.getElementById('add-toast');
+    const verb = window.innerWidth <= 767 ? 'Tap' : 'Click';
+    toast.innerHTML = `${verb} on the map to set the new location &nbsp; <a href="#" id="reposition-cancel" style="color:#fff;text-decoration:underline">Cancel</a>`;
+    toast.classList.add('show');
+    clearTimeout(toastTimer);
+    document.getElementById('reposition-cancel').onclick = (ev) => { ev.preventDefault(); cancelReposition(); };
+  }
+
+  function cancelReposition() {
+    repositionTarget = null;
+    document.getElementById('map').classList.remove('add-mode');
+    const toast = document.getElementById('add-toast');
+    toast.classList.remove('show');
+    toast.innerHTML = '';
+  }
+
   // ── Submit ────────────────────────────────────────────────────────────────────
   function submitAddTree(e) {
     e.preventDefault();
@@ -3761,11 +4034,33 @@
       if (addMarker) map.removeLayer(addMarker);
       addMarker = L.marker(e.latlng, { icon: crosshairIcon, interactive: false }).addTo(map);
       openAddTreeModal(lat, lng);
+    } else if (repositionTarget) {
+      const lat = e.latlng.lat.toFixed(7);
+      const lng = e.latlng.lng.toFixed(7);
+      const { ref, tree, marker } = repositionTarget;
+      const oldLatLng = marker.getLatLng();
+      cancelReposition();
+      marker.setLatLng([parseFloat(lat), parseFloat(lng)]);
+      postToScript({ action: 'repositionTree', token: readContributorToken(), ref, lat, lng, tree: treeLabel(tree) })
+        .then(data => {
+          // Ref is derived from the coordinates, so the tree has a new one.
+          tree['Latitude']  = lat;
+          tree['Longitude'] = lng;
+          if (data.ref) tree['Ref'] = String(data.ref);
+          marker.setPopupContent(buildPopup(tree));
+          showToast('Tree repositioned.');
+        })
+        .catch(err => {
+          marker.setLatLng(oldLatLng);
+          showToast('Failed to reposition tree: ' + err.message);
+        });
     }
   });
 
   document.addEventListener('keydown', e => {
     if (e.key !== 'Escape') return;
+    if (isEditTreeModalOpen())         { closeEditTreeModal(); return; }
+    if (repositionTarget)              { cancelReposition(); return; }
     if (addTreeState === 'modal-open') { closeAddTreeModal(); return; }
     if (addTreeState === 'copy-mode') { exitCopyMode(); return; }
     if (addTreeState === 'click-map-mode' || addTreeState === 'method-select') { cancelAddTree(); return; }
