@@ -871,8 +871,58 @@
     .feedback-form button:hover { background: #e8e8e8; }
     .feedback-status { font-size: 11px; color: #555; }
     .tree-popup .photos { display: flex; flex-wrap: wrap; gap: 4px; margin: 8px 0; }
-    .tree-popup .photos a { display: block; flex: 1 1 calc(50% - 4px); cursor: zoom-in; }
+    .tree-popup .photo-thumb-wrap { position: relative; flex: 1 1 calc(50% - 4px); }
+    .tree-popup .photo-thumb-link { display: block; cursor: zoom-in; }
     .tree-popup .photos img { width: 100%; height: 100px; object-fit: cover; border-radius: 3px; display: block; }
+    .tree-popup .photo-overflow-badge {
+      position: absolute;
+      bottom: 4px; right: 4px;
+      background: rgba(0,0,0,0.65);
+      color: white;
+      font-weight: 600;
+      font-size: 11px;
+      line-height: 1;
+      padding: 4px 7px;
+      border-radius: 999px;
+      pointer-events: none;
+    }
+    /* Leave room for the add-photo corner button when both are shown */
+    .tree-popup .photo-add-corner ~ .photo-overflow-badge,
+    .tree-popup .photo-overflow-badge:has(~ .photo-add-corner) { right: 30px; }
+    .tree-popup .photo-add-corner {
+      position: absolute;
+      bottom: 4px; right: 4px;
+      width: 22px; height: 22px;
+      border: none;
+      padding: 0;
+      border-radius: 50%;
+      background: rgba(58, 110, 82, 0.85);
+      color: white;
+      font-size: 15px;
+      line-height: 1;
+      font-weight: 600;
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer;
+      opacity: 0.85;
+      transition: opacity 0.15s, background 0.15s;
+    }
+    .tree-popup .photo-add-corner:hover { opacity: 1; background: rgba(58, 110, 82, 1); }
+    .tree-popup .photo-add-slot {
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      gap: 4px;
+      flex: 1 1 calc(50% - 4px);
+      height: 100px;
+      border-radius: 3px;
+      border: 1.5px dashed #b5cfbf;
+      background: #f6fbf8;
+      color: #3a6e52;
+      font-family: inherit;
+      cursor: pointer;
+      padding: 4px;
+    }
+    .tree-popup .photo-add-slot:hover { background: #e8f4ec; border-color: #5a9e7a; }
+    .tree-popup .photo-add-slot-icon { font-size: 20px; line-height: 1; }
+    .tree-popup .photo-add-slot-label { font-size: 11px; font-weight: 600; }
 
     #lightbox {
       display: none;
@@ -927,6 +977,54 @@
     #lightbox-bar button:hover, #lightbox-bar a:hover { background: rgba(255,255,255,0.15); }
     #lightbox-bar .nav { font-size: 20px; padding: 3px 14px; }
     #lightbox-bar .nav:disabled { opacity: 0.25; cursor: default; }
+    #lightbox-bar button[hidden] { display: none; }
+    /* Positioned against #lightbox itself, so reorder mode centres the
+       thumbnails while the button bar stays where it always sits. */
+    #lightbox-reorder-panel {
+      display: none;
+      position: absolute;
+      left: 0; right: 0;
+      top: 50%;
+      transform: translateY(-50%);
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
+      padding: 0 16px;
+      max-height: calc(100% - 120px);
+      overflow-y: auto;
+    }
+    #lightbox.reorder-mode #lightbox-reorder-panel { display: flex; }
+    #lightbox.reorder-mode #lightbox-img { visibility: hidden; }
+    #lightbox.reorder-mode #lightbox-spinner,
+    #lightbox.reorder-mode #lightbox-zoom-hint { display: none; }
+    #lightbox-thumbs {
+      display: flex;
+      justify-content: center;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+    #lightbox-reorder-hint {
+      font-size: 11px;
+      color: rgba(255,255,255,0.6);
+      pointer-events: none;
+    }
+    #lightbox-thumbs .lightbox-thumb {
+      flex: 0 0 auto;
+      width: 48px;
+      height: 48px;
+      object-fit: cover;
+      border-radius: 4px;
+      opacity: 0.6;
+      border: 2px solid transparent;
+      cursor: grab;
+      touch-action: none;
+      -webkit-user-drag: none;
+    }
+    #lightbox-thumbs .lightbox-thumb.active { opacity: 1; border-color: white; }
+    #lightbox-thumbs .lightbox-thumb.dragging { opacity: 0.9; cursor: grabbing; position: relative; z-index: 1; }
+    @media (min-width: 768px) {
+      #lightbox-thumbs .lightbox-thumb { width: 240px; height: 240px; }
+    }
     #lightbox-close-top {
       position: absolute;
       top: 12px;
@@ -1374,11 +1472,21 @@
     <img id="lightbox-img" src="" referrerpolicy="no-referrer" alt="Tree photo" draggable="false" onclick="toggleLightboxZoom(event)"
          onload="document.getElementById('lightbox').classList.remove('loading')"
          onerror="document.getElementById('lightbox').classList.remove('loading')"/>
+    <div id="lightbox-reorder-panel">
+      <div id="lightbox-thumbs"></div>
+      <div id="lightbox-reorder-hint">Click or tap and drag to reorder</div>
+    </div>
     <div id="lightbox-bar">
       <button class="nav" id="lightbox-prev" onclick="stepLightbox(-1)">&#8249;</button>
       <a id="lightbox-open" href="" target="_blank" rel="noopener" referrerpolicy="no-referrer">
         <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-1px;margin-right:5px"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>Open in new tab
       </a>
+      <button id="lightbox-delete" title="Remove this photo from the tree" onclick="lightboxDeleteCurrentPhoto()" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
+      </button>
+      <button id="lightbox-reorder" title="Reorder photos" onclick="toggleLightboxReorder()" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+      </button>
       <button class="nav" id="lightbox-next" onclick="stepLightbox(1)">&#8250;</button>
     </div>
   </div>
@@ -1866,13 +1974,28 @@
     `</div>`;
 
     const photos = parsePhotos(tree['Photo']);
-    if (photos.length) {
+    const canAddPhoto = canContribute() && tree['Ref'];
+    if (photos.length || canAddPhoto) {
       html += `<div class="photos">`;
       const photosAttr = JSON.stringify(photos).replace(/"/g, '&quot;');
-      photos.forEach((raw, i) => {
+      // At most 4 thumbnails; the lightbox (opened with the full list) is
+      // where any others are browsed, flagged by a "+N" badge.
+      const shown = photos.slice(0, 4);
+      const overflowCount = photos.length - shown.length;
+      shown.forEach((raw, i) => {
         const thumb = googlePhotoUrl(raw, 'w280');
-        html += `<a href="#" data-photos="${photosAttr}" data-index="${i}" onclick="openLightbox(JSON.parse(this.dataset.photos), +this.dataset.index); return false;"><img src="${thumb}" loading="lazy" referrerpolicy="no-referrer" alt="Tree photo"/></a>`;
+        const isLast = i === shown.length - 1;
+        // Once the grid is full there's no room for an "Add photo" slot, so
+        // it becomes a small corner button on the last thumbnail.
+        const addCorner = (isLast && shown.length === 4 && canAddPhoto)
+          ? `<button type="button" class="photo-add-corner" title="Add a photo to this tree" onclick="event.stopPropagation(); addPhotoToExistingTree('${treeRef}'); return false;">+</button>`
+          : '';
+        const overflowBadge = (isLast && overflowCount > 0) ? `<div class="photo-overflow-badge">+${overflowCount}</div>` : '';
+        html += `<div class="photo-thumb-wrap"><a class="photo-thumb-link" href="#" data-photos="${photosAttr}" data-index="${i}" onclick="openLightbox('${treeRef}', JSON.parse(this.dataset.photos), +this.dataset.index); return false;"><img src="${thumb}" loading="lazy" referrerpolicy="no-referrer" alt="Tree photo"/></a>${addCorner}${overflowBadge}</div>`;
       });
+      if (canAddPhoto && shown.length < 4) {
+        html += `<button type="button" class="photo-add-slot" title="Add a photo to this tree" onclick="addPhotoToExistingTree('${treeRef}'); return false;"><span class="photo-add-slot-icon">+📷</span><span class="photo-add-slot-label">Add photo</span></button>`;
+      }
       html += `</div>`;
     }
     html += row('Common name',      tree['Common name']);
@@ -2531,6 +2654,7 @@
   // ── MAP SETUP ────────────────────────────────────────────────────────────────
   const SHEET_ID = '16056CHjRL4-hbd4hbIb1czvrryGKcwMFYWCDeMDDAHM';
   const CSV_URL  = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv`;
+  const HISTORY_CSV_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent('History')}`;
   applyContributorGate();
 
   const baseLayers = {
@@ -3099,13 +3223,63 @@
   let tagifyCondition  = null;
 
   // ── DATA LOADING ─────────────────────────────────────────────────────────────
-  async function loadData() {
-    // Clear any pending-submission marker from a previous add
-    if (pendingAddMarker) {
-      map.removeLayer(pendingAddMarker);
-      pendingAddMarker = null;
+  function focusTreeByRef(ref) {
+    // Numeric comparison, not string equality: Ref is a number, and its
+    // formatting can differ between the Trees sheet, a History row and a URL
+    // param (e.g. "123.45670" vs "123.4567") while meaning the same tree.
+    const target = parseFloat(ref);
+    if (isNaN(target)) return false;
+    for (const [tree, marker] of markers) {
+      if (parseFloat(tree['Ref']) === target) {
+        map.setView(marker.getLatLng(), Math.max(map.getZoom(), 18));
+        marker.openPopup();
+        return true;
+      }
     }
-    document.getElementById('tree-count').textContent = 'Loading…';
+    return false;
+  }
+
+  // A shared/bookmarked tree URL (?ref=...) can go stale: Ref is derived from
+  // lat/lng, so repositioning a tree changes it. handleRepositionTree records
+  // the pre-move Ref in History's 'Prev Ref' column on that move's own row,
+  // and forward-rewrites that row's 'Ref' column on every later move of the
+  // same tree — so a direct 'Prev Ref' match gives the tree's current Ref in
+  // one lookup, however many times it's moved since. Returns the current Ref
+  // string, or null if nothing matches (never moved, predates this, deleted).
+  async function resolveStaleRef(ref) {
+    const target = parseFloat(ref);
+    if (isNaN(target)) return null;
+    try {
+      const resp = await fetch(HISTORY_CSV_URL);
+      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+      const rows = parseCSV(await resp.text());
+      if (rows.length < 2) return null;
+      const headers = rows[0].map(h => h.trim());
+      const prevRefCol = headers.indexOf('Prev Ref');
+      const refCol = headers.indexOf('Ref');
+      if (prevRefCol === -1 || refCol === -1) return null;
+      for (const row of rows.slice(1)) {
+        if (parseFloat(row[prevRefCol]) === target) return row[refCol];
+      }
+    } catch (err) {
+      console.warn('Could not resolve stale tree ref:', err);
+    }
+    return null;
+  }
+
+  // Fetches the sheet and (re)draws every marker. `silent` is for quiet
+  // refreshes after adding a tree: it keeps the current view, filters and
+  // URL state, and reports failure by returning null instead of showing it.
+  async function loadData(opts = {}) {
+    const silent = opts.silent || false;
+    if (!silent) {
+      // Clear any pending-submission marker from a previous add
+      if (pendingAddMarker) {
+        map.removeLayer(pendingAddMarker);
+        pendingAddMarker = null;
+      }
+      document.getElementById('tree-count').textContent = 'Loading…';
+    }
 
     let text;
     try {
@@ -3113,17 +3287,18 @@
       if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
       text = await resp.text();
     } catch (err) {
+      if (silent) return null;
       document.getElementById('map-loading').classList.add('hidden');
       document.getElementById('tree-count').textContent = 'Failed to load data';
       console.error('Could not fetch tree data:', err);
-      return;
+      return null;
     }
-    document.getElementById('map-loading').classList.add('hidden');
+    if (!silent) document.getElementById('map-loading').classList.add('hidden');
 
     const rows = parseCSV(text);
     if (rows.length < 2) {
-      document.getElementById('tree-count').textContent = 'No data found';
-      return;
+      if (!silent) document.getElementById('tree-count').textContent = 'No data found';
+      return null;
     }
 
     const headers = rows[0].map(h => h.trim());
@@ -3141,6 +3316,15 @@
 
     const colourMap = buildColourMap(trees);
     const bounds = [];
+
+    // On a refresh, replace the existing markers, remembering which tree's
+    // popup was open so it can be reopened on the redrawn marker.
+    let openRef = null;
+    for (const [tree, marker] of markers) {
+      if (marker.isPopupOpen()) openRef = tree['Ref'];
+      map.removeLayer(marker);
+    }
+    markers.clear();
 
     for (const tree of trees) {
       const lat = parseFloat(tree['Latitude']);
@@ -3166,6 +3350,14 @@
       bounds.push([lat, lng]);
     }
 
+    if (silent) {
+      applyFilters(); // new markers must respect the filters already set
+      updateLabels();
+      updateWateringCounts();
+      if (openRef) focusTreeByRef(openRef);
+      return trees;
+    }
+
     if (bounds.length) map.fitBounds(bounds, { padding: [24, 24] });
     updateLabels();
 
@@ -3177,16 +3369,21 @@
     if (COLOUR_TOOL) buildColourTool(trees);
 
     // Open popup for a specific tree if ?ref= is in the URL
+    // The Ref may be stale (the tree was repositioned since this link was
+    // shared) — fall back to resolveStaleRef before giving up.
     const refParam = new URLSearchParams(window.location.search).get('ref');
-    if (refParam) {
-      for (const [tree, marker] of markers) {
-        if (tree['Ref'] === refParam) {
-          map.setView(marker.getLatLng(), Math.max(map.getZoom(), 18));
-          marker.openPopup();
-          break;
+    if (refParam && !focusTreeByRef(refParam)) {
+      resolveStaleRef(refParam).then(currentRef => {
+        if (currentRef && focusTreeByRef(currentRef)) {
+          const url = new URL(window.location.href);
+          url.searchParams.set('ref', currentRef);
+          history.replaceState({}, '', url);
+        } else {
+          showToast('This tree may have been moved or removed.');
         }
-      }
+      });
     }
+    return trees;
   }
 
   // ── NEARBY PARKS ─────────────────────────────────────────────────────────────
@@ -3250,12 +3447,37 @@
   }
 
   // ── LIGHTBOX ─────────────────────────────────────────────────────────────────
-  let lbPhotos = [], lbIndex = 0;
+  let lbRef = null, lbPhotos = [], lbIndex = 0, lbReorderMode = false;
 
-  function openLightbox(photos, index) {
+  const LB_REORDER_ICON = '<svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>';
+  const LB_DONE_ICON    = '<svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
+
+  // Toggles the reorder thumbnail strip, swapping the button's icon between
+  // the reorder glyph and a checkmark for "done".
+  function toggleLightboxReorder() {
+    lbReorderMode = !lbReorderMode;
+    document.getElementById('lightbox').classList.toggle('reorder-mode', lbReorderMode);
+    const btn = document.getElementById('lightbox-reorder');
+    btn.innerHTML = lbReorderMode ? LB_DONE_ICON : LB_REORDER_ICON;
+    btn.title = lbReorderMode ? 'Done reordering' : 'Reorder photos';
+  }
+
+  // Forces reorder mode off (lightbox closing, or too few photos left).
+  function exitLightboxReorder() {
+    if (!lbReorderMode) return;
+    lbReorderMode = false;
+    document.getElementById('lightbox').classList.remove('reorder-mode');
+    const btn = document.getElementById('lightbox-reorder');
+    btn.innerHTML = LB_REORDER_ICON;
+    btn.title = 'Reorder photos';
+  }
+
+  function openLightbox(ref, photos, index) {
+    lbRef    = ref;
     lbPhotos = photos;
     lbIndex  = index;
     showLightboxPhoto();
+    renderLightboxThumbs();
     document.getElementById('lightbox').classList.add('open');
     preloadOtherLightboxPhotos();
   }
@@ -3312,6 +3534,13 @@
     const showNav = lbPhotos.length > 1;
     document.getElementById('lightbox-prev').style.visibility = showNav ? '' : 'hidden';
     document.getElementById('lightbox-next').style.visibility = showNav ? '' : 'hidden';
+    document.getElementById('lightbox-delete').hidden = !(canContribute() && lbRef);
+    const canReorder = canContribute() && lbRef && lbPhotos.length > 1;
+    document.getElementById('lightbox-reorder').hidden = !canReorder;
+    if (!canReorder) exitLightboxReorder();
+    document.querySelectorAll('#lightbox-thumbs .lightbox-thumb').forEach((el, i) => {
+      el.classList.toggle('active', i === lbIndex);
+    });
   }
 
   // Track pointer travel so a pan gesture doesn't trigger zoom toggle
@@ -3410,6 +3639,7 @@
 
   function closeLightbox() {
     lbResetZoom();
+    exitLightboxReorder();
     document.getElementById('lightbox').classList.remove('open');
     document.getElementById('lightbox-img').src = '';
   }
@@ -3774,6 +4004,149 @@
     document.getElementById('btn-click-map-label').textContent = window.innerWidth <= 767 ? 'Tap on map' : 'Click on map';
   }
 
+  // ── Tree photos: add, remove, reorder (contributors) ─────────────────────────
+  // Photos are Google Photos image URLs stored comma-separated in the Photo
+  // column. Removing one only takes it off the tree; the image stays in
+  // Google Photos.
+  function setTreePhotos(tree, photos) {
+    tree['Photo'] = photos.join(',');
+    markers.get(tree)?.setPopupContent(buildPopup(tree));
+  }
+
+  // Asks for one or more Google Photos image URLs (the "Copy image address"
+  // of a photo in Google Photos) and appends them to the tree.
+  async function addPhotoToExistingTree(ref) {
+    if (!canContribute()) return;
+    const tree = findTreeByRef(ref);
+    if (!tree) return;
+    const input = prompt('Paste the Google Photos image address (right-click or long-press the photo → Copy image address). To add several, separate them with commas:');
+    if (!input) return;
+    // Google Photos URLs never contain commas or spaces, so either separates them.
+    const urls = input.split(/[\s,]+/).map(u => u.trim()).filter(Boolean);
+    const bad = urls.filter(u => !/^https:\/\/lh\d\.googleusercontent\.com\//.test(u));
+    if (!urls.length || bad.length) {
+      alert('That doesn\'t look like a Google Photos image address. It should start with https://lh3.googleusercontent.com/');
+      return;
+    }
+    showToast('Adding photo…');
+    try {
+      const data = await postToScript({ action: 'appendPhotos', token: readContributorToken(), ref, urls, tree: treeLabel(tree) });
+      setTreePhotos(tree, parsePhotos(data.photos));
+      showToast(urls.length > 1 ? `${urls.length} photos added.` : 'Photo added.');
+    } catch (err) {
+      showToast('Failed to add photo: ' + err.message);
+    }
+  }
+
+  async function lightboxDeleteCurrentPhoto() {
+    const url = lbPhotos[lbIndex];
+    if (!canContribute() || !lbRef || !url) return;
+    const tree = findTreeByRef(lbRef);
+    if (!tree) return;
+    if (!confirm('Remove this photo from the tree? It stays in Google Photos.')) return;
+    try {
+      await postToScript({ action: 'removePhoto', token: readContributorToken(), ref: lbRef, url, tree: treeLabel(tree) });
+    } catch (err) {
+      showToast('Failed to remove photo: ' + err.message);
+      return;
+    }
+    lbPhotos = lbPhotos.filter(p => p !== url);
+    setTreePhotos(tree, lbPhotos);
+    if (lbPhotos.length === 0) {
+      closeLightbox();
+    } else {
+      lbIndex = Math.min(lbIndex, lbPhotos.length - 1);
+      showLightboxPhoto();
+      renderLightboxThumbs();
+    }
+    showToast('Photo removed.');
+  }
+
+  // Drag-to-reorder thumbnail strip. Photos are tracked by URL (unique
+  // within a tree) so the dragged one survives re-renders.
+  function renderLightboxThumbs() {
+    const strip = document.getElementById('lightbox-thumbs');
+    strip.innerHTML = '';
+    if (!canContribute() || !lbRef || lbPhotos.length < 2) return;
+    lbPhotos.forEach((raw, i) => {
+      const img = document.createElement('img');
+      img.className = 'lightbox-thumb' + (i === lbIndex ? ' active' : '');
+      img.src = googlePhotoUrl(raw, 'w280');
+      img.referrerPolicy = 'no-referrer';
+      img.draggable = false;
+      img.addEventListener('pointerdown', e => lbThumbPointerDown(e, raw));
+      strip.appendChild(img);
+    });
+  }
+
+  function lbThumbPointerDown(e, url) {
+    const strip = document.getElementById('lightbox-thumbs');
+    const activeUrl = lbPhotos[lbIndex];
+    const originalOrder = lbPhotos.slice();
+    const startX = e.clientX;
+    let moved = false;
+    e.currentTarget.setPointerCapture(e.pointerId);
+
+    const startY = e.clientY;
+    const onMove = ev => {
+      if (!moved && Math.hypot(ev.clientX - startX, ev.clientY - startY) < 8) return;
+      moved = true;
+      // Target is the thumbnail whose centre is nearest the pointer, so it
+      // works when the strip wraps onto several rows, and stays correct
+      // even though the thumbnails are re-rendered on each reorder.
+      let targetIndex = 0, best = Infinity;
+      [...strip.children].forEach((el, i) => {
+        const r = el.getBoundingClientRect();
+        const d = Math.hypot(ev.clientX - (r.left + r.width / 2), ev.clientY - (r.top + r.height / 2));
+        if (d < best) { best = d; targetIndex = i; }
+      });
+      const currentIndex = lbPhotos.indexOf(url);
+      if (targetIndex !== currentIndex) {
+        lbPhotos.splice(currentIndex, 1);
+        lbPhotos.splice(targetIndex, 0, url);
+        lbIndex = lbPhotos.indexOf(activeUrl);
+        renderLightboxThumbs();
+        strip.children[lbPhotos.indexOf(url)].classList.add('dragging');
+      }
+    };
+
+    const onUp = () => {
+      document.removeEventListener('pointermove', onMove);
+      document.removeEventListener('pointerup', onUp);
+      if (!moved) {
+        // A plain tap: jump to that photo and leave reorder mode to show it.
+        lbIndex = lbPhotos.indexOf(url);
+        showLightboxPhoto();
+        exitLightboxReorder();
+        return;
+      }
+      renderLightboxThumbs();
+      if (lbPhotos.join('\u0000') !== originalOrder.join('\u0000')) {
+        saveLightboxPhotoOrder(originalOrder, activeUrl);
+      }
+    };
+
+    document.addEventListener('pointermove', onMove);
+    document.addEventListener('pointerup', onUp);
+  }
+
+  async function saveLightboxPhotoOrder(originalOrder, activeUrl) {
+    const tree = findTreeByRef(lbRef);
+    if (!tree) return;
+    const order = lbPhotos.slice();
+    try {
+      await postToScript({ action: 'reorderPhotos', token: readContributorToken(), ref: lbRef, order, tree: treeLabel(tree) });
+    } catch (err) {
+      showToast('Failed to save new photo order: ' + err.message);
+      lbPhotos = originalOrder;
+      lbIndex = lbPhotos.indexOf(activeUrl);
+      showLightboxPhoto();
+      renderLightboxThumbs();
+      return;
+    }
+    setTreePhotos(tree, order);
+  }
+
   // ── Edit / delete / reposition an existing tree ──────────────────────────────
   let tagifyEditTags      = null;
   let tagifyEditFormField = null;
@@ -3972,6 +4345,33 @@
     toast.innerHTML = '';
   }
 
+  // After adding a tree, quietly re-fetch the sheet until the new tree shows
+  // up in it, then the pending marker is replaced by the real one.
+  function schedulePostSubmitReloads(lat, lng) {
+    const delays = [4000, 12000, 30000];
+    let attempt = 0;
+    async function tryReload() {
+      const trees = await loadData({ silent: true });
+      if (trees) {
+        const found = trees.some(t =>
+          Math.abs(parseFloat(t['Latitude'])  - lat) < 0.000001 &&
+          Math.abs(parseFloat(t['Longitude']) - lng) < 0.000001);
+        if (found) {
+          if (pendingAddMarker) { map.removeLayer(pendingAddMarker); pendingAddMarker = null; }
+          return;
+        }
+      }
+      attempt++;
+      if (attempt < delays.length) {
+        setTimeout(tryReload, delays[attempt]);
+      } else {
+        if (pendingAddMarker) { map.removeLayer(pendingAddMarker); pendingAddMarker = null; }
+        showToast('Tree submitted but not yet visible — it may take a few minutes to appear.');
+      }
+    }
+    setTimeout(tryReload, delays[0]);
+  }
+
   // ── Submit ────────────────────────────────────────────────────────────────────
   function submitAddTree(e) {
     e.preventDefault();
@@ -4005,6 +4405,7 @@
       pendingAddMarker = L.marker([parseFloat(lat), parseFloat(lng)], {
         icon: pendingTreeIcon, interactive: false
       }).addTo(map).bindTooltip('Pending: ' + (payload.sci || 'New tree'), { permanent: false });
+      schedulePostSubmitReloads(parseFloat(lat), parseFloat(lng));
       setTimeout(() => closeAddTreeModal(), 1800);
     }).catch(err => {
       status.textContent = 'Error submitting: ' + err.message;
