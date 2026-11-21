@@ -4234,9 +4234,17 @@
     if (!input) return;
     // Google Photos URLs never contain commas or spaces, so either separates them.
     const urls = input.split(/[\s,]+/).map(u => u.trim()).filter(Boolean);
-    const bad = urls.filter(u => !/^https:\/\/lh\d\.googleusercontent\.com\//.test(u));
-    if (!urls.length || bad.length) {
-      alert('That doesn\'t look like a Google Photos image address. It should start with https://lh3.googleusercontent.com/');
+    // Shared-album image addresses have /pw/ in them. One copied from your
+    // own photostream doesn't, and only loads for someone signed in to that
+    // Google account — everyone else would see a broken image.
+    const isGoogleImage = u => /^https:\/\/lh\d\.googleusercontent\.com\//.test(u);
+    const isSharedAlbum = u => /^https:\/\/lh\d\.googleusercontent\.com\/pw\//.test(u);
+    if (!urls.length || !urls.every(isGoogleImage)) {
+      alert('That doesn\'t look like a Google Photos image address. It should start with https://lh3.googleusercontent.com/pw/');
+      return;
+    }
+    if (!urls.every(isSharedAlbum)) {
+      alert('That photo seems to be copied from your photostream, so only you would be able to see it. Open the photo in the shared album instead, then copy its image address.');
       return;
     }
     showToast('Adding photo…');
