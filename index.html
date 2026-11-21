@@ -2610,6 +2610,10 @@
     document.querySelectorAll('#filter-months input').forEach(cb => { cb.checked = false; });
     document.querySelectorAll('.month-btn').forEach(el => el.classList.remove('selected'));
     selectAerialLayer(null, null, null);
+    if (futureLayerOn) setFutureLayer(false);
+    hideMarkers = false;
+    const hideMarkersInput = document.querySelector('.aerial-checkbox-row input');
+    if (hideMarkersInput) hideMarkersInput.checked = false;
     closeSearchFilter();
     applyFilters();
   }

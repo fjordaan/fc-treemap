@@ -16,8 +16,9 @@
  *   8. action: 'removePhoto'    → strips one URL from a tree's Photo cell
  *   9. action: 'reorderPhotos'  → rewrites the order of a tree's Photo cell
  *
- * Every tree/photo action also appends a row to the History sheet (created
- * on first use) — see appendHistory().
+ * Every tree/photo action on trees_master also appends a row to the History
+ * sheet (created on first use) — see appendHistory(). Future trees are not
+ * recorded there.
  *
  * Tree and photo actions work on "trees_master" unless the request has
  * layer: 'future', in which case they work on the "Future trees" tab
@@ -114,9 +115,11 @@ function isFuture(data) {
   return data.layer === 'future';
 }
 
-// History label, so planned trees can be told apart from real ones.
-function historyLabel(data) {
-  return isFuture(data) ? (data.tree || '') + ' (future)' : data.tree;
+// History records changes to existing trees only; planned (future) trees
+// are left out.
+function logHistory(data, action, ref, count, prevRef) {
+  if (isFuture(data)) return;
+  appendHistory(action, ref, data.tree, count, prevRef);
 }
 
 // Ref as the trees_master formula produces it: the first five decimal
@@ -290,7 +293,7 @@ function handleAddTree(data) {
     SpreadsheetApp.flush();
     const found  = findTreeRowByLatLng(sheet, lat, lng);
     const newRef = found ? fillRefIfNoFormula(sheet, found.rowNum, found.refCol, lat, lng) : '';
-    appendHistory('addTree', newRef, historyLabel(data));
+    logHistory(data, 'addTree', newRef);
 
     return jsonResponse({ status: 'ok', ref: newRef });
   } finally {
@@ -323,7 +326,7 @@ function handleEditTree(data) {
   set('Year died',         data.year_died);
   set('Form',              data.form_field);
   set('Condition',         data.condition);
-  appendHistory('editTree', data.ref, historyLabel(data));
+  logHistory(data, 'editTree', data.ref);
   return jsonResponse({ status: 'ok' });
 }
 
@@ -357,7 +360,7 @@ function handleRepositionTree(data) {
   // Keep this tree's History chain linked: rewrite every History row that
   // recorded the pre-move Ref to the new one.
   const historySheet = ss.getSheetByName(HISTORY_SHEET);
-  if (historySheet && newRef) {
+  if (historySheet && newRef && !isFuture(data)) {
     const hLastRow = historySheet.getLastRow();
     if (hLastRow > 1) {
       const hHeaders = historySheet.getRange(1, 1, 1, historySheet.getLastColumn()).getValues()[0];
@@ -373,7 +376,7 @@ function handleRepositionTree(data) {
     }
   }
 
-  appendHistory('repositionTree', newRef, historyLabel(data), undefined, data.ref);
+  logHistory(data, 'repositionTree', newRef, undefined, data.ref);
   return jsonResponse({ status: 'ok', ref: newRef });
 }
 
@@ -390,7 +393,7 @@ function handleDeleteTree(data) {
     if (row && row.error) return jsonResponse({ status: 'error', message: row.error });
     if (!row) return jsonResponse({ status: 'error', message: 'Tree not found: ' + data.ref });
     sheet.deleteRow(row.rowNum);
-    appendHistory('deleteTree', data.ref, historyLabel(data));
+    logHistory(data, 'deleteTree', data.ref);
     return jsonResponse({ status: 'ok' });
   } finally {
     lock.releaseLock();
@@ -418,7 +421,7 @@ function handleAppendPhotos(data) {
     const cell = sheet.getRange(row.rowNum, row.photoCol);
     const next = splitPhotos(cell.getValue()).concat(data.urls).join(',');
     cell.setValue(next);
-    appendHistory('appendPhotos', data.ref, historyLabel(data), data.urls.length);
+    logHistory(data, 'appendPhotos', data.ref, data.urls.length);
     return jsonResponse({ status: 'ok', photos: next });
   } finally {
     lock.releaseLock();
@@ -443,7 +446,7 @@ function handleRemovePhoto(data) {
     }
     const next = existing.filter(p => p !== data.url).join(',');
     cell.setValue(next);
-    appendHistory('removePhoto', data.ref, historyLabel(data));
+    logHistory(data, 'removePhoto', data.ref);
     return jsonResponse({ status: 'ok', photos: next });
   } finally {
     lock.releaseLock();
@@ -474,7 +477,7 @@ function handleReorderPhotos(data) {
     }
     const next = data.order.join(',');
     cell.setValue(next);
-    appendHistory('reorderPhotos', data.ref, historyLabel(data));
+    logHistory(data, 'reorderPhotos', data.ref);
     return jsonResponse({ status: 'ok', photos: next });
   } finally {
     lock.releaseLock();
