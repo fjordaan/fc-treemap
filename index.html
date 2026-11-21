@@ -272,6 +272,8 @@
     .add-tree-btns button.active { background: #fdecea; border-color: #c0392b; color: #c0392b; }
     #btn-copy-coords svg { flex-shrink: 0; }
     #btn-add-tree-init { background: #e8f4ec; border-color: #5a9e7a; color: #3a6e52; }
+    /* Trusted-contributor gating: hide write controls until this device is enrolled. */
+    body:not(.contributor) #btn-add-tree-init { display: none; }
     #btn-add-tree-init:hover { background: #d4ecdf; }
     .add-tree-method-row { display: none; gap: 6px; }
     .add-tree-method-row.visible { display: flex; }
@@ -1236,6 +1238,8 @@
     <div class="info-row">
       Contact: <a href="mailto:hello@fulhamcemeteryfriends.org.uk">hello@fulhamcemeteryfriends.org.uk</a>
     </div>
+    <div class="info-row" id="info-sheet-row" style="display:none">Tree database: <a id="info-sheet" href="#" target="_blank" rel="noopener">Open in Google Sheets</a></div>
+    <div class="info-row" id="info-enrol-row">Want to add or edit trees from this device? <a href="#" onclick="enrolDeviceManually(); return false;">Enrol this device</a></div>
     <div id="info-attribution">
       Built with <a href="https://www.fulhamcemeteryfriends.org.uk/trees-nature/trees/park-treemap" target="_blank" rel="noopener">park-treemap</a> &mdash; a free, self-hosted tree-map template for any park's &quot;Friends of&quot; group.
     </div>
@@ -1511,6 +1515,102 @@
 
   function kmlLineColor(styleUrl) {
     return styleUrl.includes('795548') ? '#3B7A5C' : '#000000';
+  }
+
+  // ── APPS SCRIPT BACKEND ──────────────────────────────────────────────────────
+  // One Apps Script Web App (apps-script.gs) handles feedback and every tree
+  // change. A plain fetch() (no mode:'no-cors') can read its JSON response,
+  // so real failures — bad contributor token, script errors — surface here.
+  const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwkF3QruZrD7QJP_kXoIqC-BOfgx_8qr2i7fi8CVDTjwrSyThx3PImQBO-PuND-I2b4_A/exec';
+
+  async function postToScript(payload) {
+    const res = await fetch(APPS_SCRIPT_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain' },
+      body: JSON.stringify(payload)
+    });
+    let data = null;
+    try { data = await res.json(); } catch (e) {}
+    if (!res.ok || !data || data.status !== 'ok') {
+      throw new Error((data && data.message) || `Request failed (HTTP ${res.status})`);
+    }
+    return data;
+  }
+
+  // ── TRUSTED CONTRIBUTORS ─────────────────────────────────────────────────────
+  // Adding, editing and deleting trees is limited to devices enrolled via a
+  // magic link (?enrol=<CONTRIBUTOR_TOKEN>) or the Info panel's "Enrol this
+  // device". The Apps Script checks the token on every write.
+  const CONTRIB_KEY = 'fc-treemap-contributor-token';
+
+  function readContributorToken() {
+    try { return localStorage.getItem(CONTRIB_KEY) || ''; } catch (e) { return ''; }
+  }
+
+  function canContribute() {
+    return !!readContributorToken();
+  }
+
+  // canContribute() only checks that a token is stored, so a candidate token
+  // is checked against the server before either enrolment path stores it.
+  async function validateContributorToken(token) {
+    try {
+      await postToScript({ action: 'validateToken', token });
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  // If the URL contains ?enrol=<token>, validate it and, if valid, store it —
+  // either way, strip it from the address bar so it doesn't end up in
+  // bookmarks or browser history.
+  (function enrolFromUrl() {
+    const params = new URLSearchParams(window.location.search);
+    const tok = params.get('enrol');
+    if (!tok) return;
+    params.delete('enrol');
+    const clean = params.toString();
+    history.replaceState({}, '', window.location.pathname + (clean ? '?' + clean : '') + window.location.hash);
+    validateContributorToken(tok).then(valid => {
+      if (valid) {
+        try { localStorage.setItem(CONTRIB_KEY, tok); } catch (e) {}
+        location.reload();
+      } else {
+        showToast('Either that link is invalid, or there was a connection problem. Please try again.');
+      }
+    });
+  })();
+
+  // Manual enrolment — needed where the magic link can't be visited, e.g.
+  // inside an iOS home-screen app, whose storage is separate from Safari's.
+  // Accepts the full magic link or just the bare token.
+  async function enrolDeviceManually() {
+    const input = prompt('Paste your magic enrolment link, or just the contributor password:');
+    if (!input) return;
+    let token = input.trim();
+    try {
+      const param = new URL(token).searchParams.get('enrol');
+      if (param) token = param;
+    } catch (e) { /* not a URL, treat as bare token */ }
+    if (!token) return;
+    if (!(await validateContributorToken(token))) {
+      alert('Either that link/password is wrong, or there was a connection problem. Please try again.');
+      return;
+    }
+    try { localStorage.setItem(CONTRIB_KEY, token); } catch (e) {}
+    // Reload so every contributor-only control re-renders enrolled.
+    location.reload();
+  }
+
+  // Reflect contributor state into the DOM: CSS hides gated controls, and the
+  // Info panel shows either the spreadsheet link or the enrol link.
+  function applyContributorGate() {
+    const enrolled = canContribute();
+    document.body.classList.toggle('contributor', enrolled);
+    document.getElementById('info-sheet').href = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/edit`;
+    document.getElementById('info-sheet-row').style.display  = enrolled ? '' : 'none';
+    document.getElementById('info-enrol-row').style.display  = enrolled ? 'none' : '';
   }
 
   // ── COLOUR TOOL ──────────────────────────────────────────────────────────────
@@ -2355,6 +2455,7 @@
   // ── MAP SETUP ────────────────────────────────────────────────────────────────
   const SHEET_ID = '16056CHjRL4-hbd4hbIb1czvrryGKcwMFYWCDeMDDAHM';
   const CSV_URL  = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv`;
+  applyContributorGate();
 
   const baseLayers = {
     'Street map': L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -3251,23 +3352,16 @@
   });
 
   // ── FEEDBACK FORM ────────────────────────────────────────────────────────────
-  const FEEDBACK_URL = 'https://script.google.com/macros/s/AKfycby5n5Ti9g7f-Jo2iK5IiWxIjXrsupMhA-D_4Cs0_8rfxmICJRT76HT3a4_i7LFEqHg/exec';
-
   function doSubmitFeedback(ref, tree, comment, btn, status, textarea, onSuccess) {
     btn.disabled = true;
     status.textContent = 'Sending…';
-    fetch(FEEDBACK_URL, {
-      method: 'POST',
-      mode: 'no-cors',
-      headers: { 'Content-Type': 'text/plain' },
-      body: JSON.stringify({ ref, tree, comment })
-    }).then(() => {
+    postToScript({ action: 'feedback', ref, tree, comment }).then(() => {
       status.textContent = 'Sent — thank you!';
       textarea.value = '';
       btn.disabled = false;
       if (onSuccess) onSuccess();
-    }).catch(() => {
-      status.textContent = 'Failed to send. Please try again.';
+    }).catch(err => {
+      status.textContent = 'Failed to send: ' + err.message;
       btn.disabled = false;
     });
   }
@@ -3606,8 +3700,6 @@
   }
 
   // ── Submit ────────────────────────────────────────────────────────────────────
-  const ADD_TREE_URL = 'https://script.google.com/macros/s/AKfycbya_2Bf-moearHF7T98Vi6XVFh5BVocRsJV4y7aphZD3RgDT2xJikRooKgmkP8LZbdaVQ/exec';
-
   function submitAddTree(e) {
     e.preventDefault();
     const form   = document.getElementById('add-tree-form');
@@ -3616,6 +3708,8 @@
     const lat    = document.getElementById('add-tree-lat').value;
     const lng    = document.getElementById('add-tree-lng').value;
     const payload = {
+      action:    'addTree',
+      token:     readContributorToken(),
       lat,
       lng,
       sci:       form.elements['sci'].value.trim(),
@@ -3628,14 +3722,10 @@
       form_field:       tagifyFormField  ? (tagifyFormField.value[0]  || {}).value || '' : '',
       condition:        tagifyCondition  ? (tagifyCondition.value[0]  || {}).value || '' : ''
     };
+    payload.tree = payload.sci || payload.common || '(unknown)'; // label for the History log
     btn.disabled = true;
     status.textContent = 'Submitting…';
-    fetch(ADD_TREE_URL, {
-      method: 'POST',
-      mode: 'no-cors',
-      headers: { 'Content-Type': 'text/plain' },
-      body: JSON.stringify(payload)
-    }).then(() => {
+    postToScript(payload).then(() => {
       status.textContent = 'Submitted! Thank you.';
       // Show a pending marker at the submitted location
       if (pendingAddMarker) map.removeLayer(pendingAddMarker);
@@ -3643,8 +3733,8 @@
         icon: pendingTreeIcon, interactive: false
       }).addTo(map).bindTooltip('Pending: ' + (payload.sci || 'New tree'), { permanent: false });
       setTimeout(() => closeAddTreeModal(), 1800);
-    }).catch(() => {
-      status.textContent = 'Error submitting. Please try again.';
+    }).catch(err => {
+      status.textContent = 'Error submitting: ' + err.message;
       btn.disabled = false;
     });
   }
