@@ -19,6 +19,10 @@
  * Every tree/photo action also appends a row to the History sheet (created
  * on first use) — see appendHistory().
  *
+ * Tree and photo actions work on "trees_master" unless the request has
+ * layer: 'future', in which case they work on the "Future trees" tab
+ * (planned trees, shown on the map's "Future trees" layer).
+ *
  * SETUP
  * -----
  * 1. In script.google.com create a new project and paste this entire file.
@@ -37,6 +41,7 @@
 
 const SHEET_ID       = '16056CHjRL4-hbd4hbIb1czvrryGKcwMFYWCDeMDDAHM'; // Fulham Cemetery tree master sheet
 const TREES_SHEET    = 'trees_master';
+const FUTURE_SHEET   = 'Future trees';
 const FEEDBACK_SHEET = 'Feedback';
 const HISTORY_SHEET  = 'History';
 const FIRST_DATA_ROW = 2; // row 1 is the header; formulas are per-row, so every data row sorts
@@ -96,10 +101,41 @@ function doGet() {
   return jsonResponse({ status: 'ok', message: 'Fulham Cemetery tree map Apps Script is running.' });
 }
 
-function treesSheet() {
-  const sheet = SpreadsheetApp.openById(SHEET_ID).getSheetByName(TREES_SHEET);
-  if (!sheet) throw new Error('Sheet "' + TREES_SHEET + '" not found');
+// The sheet a tree/photo action works on: trees_master, or the Future
+// trees tab when the request says layer: 'future'.
+function treesSheet(data) {
+  const name  = isFuture(data) ? FUTURE_SHEET : TREES_SHEET;
+  const sheet = SpreadsheetApp.openById(SHEET_ID).getSheetByName(name);
+  if (!sheet) throw new Error('Sheet "' + name + '" not found');
   return sheet;
+}
+
+function isFuture(data) {
+  return data.layer === 'future';
+}
+
+// History label, so planned trees can be told apart from real ones.
+function historyLabel(data) {
+  return isFuture(data) ? (data.tree || '') + ' (future)' : data.tree;
+}
+
+// Ref as the trees_master formula produces it: the first five decimal
+// digits of the latitude, a dot, then the first five of the longitude
+// (51.4803383, -0.215956 → 48033.21595). Used on a sheet with no Ref formula
+// to copy, which is the case for the Future trees tab until it has rows.
+function refFromLatLng(lat, lng) {
+  const digits = n => (String(Math.abs(n)).split('.')[1] || '').concat('00000').slice(0, 5);
+  return digits(lat) + '.' + digits(lng);
+}
+
+// Writes the computed Ref into a row whose Ref cell isn't a formula, as text
+// so a trailing zero isn't lost. Returns the Ref now in the row.
+function fillRefIfNoFormula(sheet, rowNum, refCol, lat, lng) {
+  const cell = sheet.getRange(rowNum, refCol);
+  if (cell.getFormula()) return cell.getValue();
+  const ref = refFromLatLng(lat, lng);
+  cell.setNumberFormat('@').setValue(ref);
+  return ref;
 }
 
 function headersOf(sheet) {
@@ -158,8 +194,11 @@ function findTreeRow(sheet, ref) {
   const lastRow = sheet.getLastRow();
   if (lastRow < FIRST_DATA_ROW) return null;
   const refs = sheet.getRange(FIRST_DATA_ROW, refCol, lastRow - FIRST_DATA_ROW + 1, 1).getValues();
+  // Numeric comparison: a Ref may be stored as a number or as text, so
+  // "48098.21410" and 48098.2141 are the same tree.
+  const target = parseFloat(ref);
   for (let i = 0; i < refs.length; i++) {
-    if (String(refs[i][0]) === String(ref)) {
+    if (String(refs[i][0]) === String(ref) || parseFloat(refs[i][0]) === target) {
       return { rowNum: i + FIRST_DATA_ROW, photoCol: photoCol };
     }
   }
@@ -196,7 +235,7 @@ function handleAddTree(data) {
   const lock = LockService.getScriptLock();
   lock.waitLock(10000);
   try {
-    const sheet   = treesSheet();
+    const sheet   = treesSheet(data);
     const headers = headersOf(sheet);
     const col = name => headers.indexOf(name); // 0-based; -1 if missing
 
@@ -250,8 +289,8 @@ function handleAddTree(data) {
     // it) to read the Ref the History entry should link to.
     SpreadsheetApp.flush();
     const found  = findTreeRowByLatLng(sheet, lat, lng);
-    const newRef = found ? sheet.getRange(found.rowNum, found.refCol).getValue() : '';
-    appendHistory('addTree', newRef, data.tree);
+    const newRef = found ? fillRefIfNoFormula(sheet, found.rowNum, found.refCol, lat, lng) : '';
+    appendHistory('addTree', newRef, historyLabel(data));
 
     return jsonResponse({ status: 'ok', ref: newRef });
   } finally {
@@ -264,7 +303,7 @@ function handleAddTree(data) {
 // Ref, Latitude, Longitude, Photo, or the formula columns. No re-sort.
 function handleEditTree(data) {
   if (!data.ref) return jsonResponse({ status: 'error', message: 'Missing ref' });
-  const sheet   = treesSheet();
+  const sheet   = treesSheet(data);
   const headers = headersOf(sheet);
   const row = findTreeRow(sheet, data.ref);
   if (row && row.error) return jsonResponse({ status: 'error', message: row.error });
@@ -284,7 +323,7 @@ function handleEditTree(data) {
   set('Year died',         data.year_died);
   set('Form',              data.form_field);
   set('Condition',         data.condition);
-  appendHistory('editTree', data.ref, data.tree);
+  appendHistory('editTree', data.ref, historyLabel(data));
   return jsonResponse({ status: 'ok' });
 }
 
@@ -297,7 +336,7 @@ function handleRepositionTree(data) {
   const lng = parseFloat(data.lng);
   if (isNaN(lat) || isNaN(lng)) return jsonResponse({ status: 'error', message: 'Invalid lat/lng' });
   const ss      = SpreadsheetApp.openById(SHEET_ID);
-  const sheet   = treesSheet();
+  const sheet   = treesSheet(data);
   const headers = headersOf(sheet);
   const row = findTreeRow(sheet, data.ref);
   if (row && row.error) return jsonResponse({ status: 'error', message: row.error });
@@ -313,7 +352,7 @@ function handleRepositionTree(data) {
   // then re-read it at the same row.
   SpreadsheetApp.flush();
   const refCol = headers.indexOf('Ref') + 1;
-  const newRef = refCol ? sheet.getRange(row.rowNum, refCol).getValue() : '';
+  const newRef = refCol ? fillRefIfNoFormula(sheet, row.rowNum, refCol, lat, lng) : '';
 
   // Keep this tree's History chain linked: rewrite every History row that
   // recorded the pre-move Ref to the new one.
@@ -334,7 +373,7 @@ function handleRepositionTree(data) {
     }
   }
 
-  appendHistory('repositionTree', newRef, data.tree, undefined, data.ref);
+  appendHistory('repositionTree', newRef, historyLabel(data), undefined, data.ref);
   return jsonResponse({ status: 'ok', ref: newRef });
 }
 
@@ -346,12 +385,12 @@ function handleDeleteTree(data) {
   const lock = LockService.getScriptLock();
   lock.waitLock(10000);
   try {
-    const sheet = treesSheet();
+    const sheet = treesSheet(data);
     const row = findTreeRow(sheet, data.ref);
     if (row && row.error) return jsonResponse({ status: 'error', message: row.error });
     if (!row) return jsonResponse({ status: 'error', message: 'Tree not found: ' + data.ref });
     sheet.deleteRow(row.rowNum);
-    appendHistory('deleteTree', data.ref, data.tree);
+    appendHistory('deleteTree', data.ref, historyLabel(data));
     return jsonResponse({ status: 'ok' });
   } finally {
     lock.releaseLock();
@@ -372,14 +411,14 @@ function handleAppendPhotos(data) {
   const lock = LockService.getScriptLock();
   lock.waitLock(10000);
   try {
-    const sheet = treesSheet();
+    const sheet = treesSheet(data);
     const row = findTreeRow(sheet, data.ref);
     if (row && row.error) return jsonResponse({ status: 'error', message: row.error });
     if (!row) return jsonResponse({ status: 'error', message: 'Tree not found: ' + data.ref });
     const cell = sheet.getRange(row.rowNum, row.photoCol);
     const next = splitPhotos(cell.getValue()).concat(data.urls).join(',');
     cell.setValue(next);
-    appendHistory('appendPhotos', data.ref, data.tree, data.urls.length);
+    appendHistory('appendPhotos', data.ref, historyLabel(data), data.urls.length);
     return jsonResponse({ status: 'ok', photos: next });
   } finally {
     lock.releaseLock();
@@ -393,7 +432,7 @@ function handleRemovePhoto(data) {
   const lock = LockService.getScriptLock();
   lock.waitLock(10000);
   try {
-    const sheet = treesSheet();
+    const sheet = treesSheet(data);
     const row = findTreeRow(sheet, data.ref);
     if (row && row.error) return jsonResponse({ status: 'error', message: row.error });
     if (!row) return jsonResponse({ status: 'error', message: 'Tree not found: ' + data.ref });
@@ -404,7 +443,7 @@ function handleRemovePhoto(data) {
     }
     const next = existing.filter(p => p !== data.url).join(',');
     cell.setValue(next);
-    appendHistory('removePhoto', data.ref, data.tree);
+    appendHistory('removePhoto', data.ref, historyLabel(data));
     return jsonResponse({ status: 'ok', photos: next });
   } finally {
     lock.releaseLock();
@@ -422,7 +461,7 @@ function handleReorderPhotos(data) {
   const lock = LockService.getScriptLock();
   lock.waitLock(10000);
   try {
-    const sheet = treesSheet();
+    const sheet = treesSheet(data);
     const row = findTreeRow(sheet, data.ref);
     if (row && row.error) return jsonResponse({ status: 'error', message: row.error });
     if (!row) return jsonResponse({ status: 'error', message: 'Tree not found: ' + data.ref });
@@ -435,7 +474,7 @@ function handleReorderPhotos(data) {
     }
     const next = data.order.join(',');
     cell.setValue(next);
-    appendHistory('reorderPhotos', data.ref, data.tree);
+    appendHistory('reorderPhotos', data.ref, historyLabel(data));
     return jsonResponse({ status: 'ok', photos: next });
   } finally {
     lock.releaseLock();

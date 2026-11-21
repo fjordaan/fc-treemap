@@ -130,12 +130,12 @@
     }
 
     /* ── AERIAL PHOTO LAYERS (inside .leaflet-control-layers) ─────────────────── */
-    .aerial-opt {
+    .aerial-opt, .future-opt {
       display: flex; align-items: center;
       cursor: pointer;
     }
     .aerial-opt.disabled { opacity: 0.4; cursor: default; }
-    .aerial-opt.selected { font-weight: 600; }
+    .aerial-opt.selected, .future-opt.selected { font-weight: 600; }
     .aerial-checkbox-row {
       display: flex; align-items: center;
       cursor: pointer;
@@ -147,6 +147,17 @@
       display: flex; align-items: center;
     }
     .aerial-off-row.selected { font-weight: 600; color: #1a1a1a; }
+
+    /* ── FUTURE TREES (planned trees, from the "Future trees" tab) ──────────── */
+    .future-badge {
+      display: inline-block; margin-bottom: 6px;
+      font-size: 11px; font-weight: 600; letter-spacing: 0.02em;
+      padding: 1px 7px; border-radius: 9px;
+      background: #eef2f7; color: #4a5a70; border: 1px dashed #8a9ab0;
+    }
+    /* Fields the Future trees tab has no column for */
+    #add-tree-modal.future .master-only,
+    #edit-tree-modal.future .master-only { display: none; }
 
     /* ── CALIBRATION PANEL (dev tool) ───────────────────────────────────────── */
     #calibrate-panel {
@@ -1430,7 +1441,7 @@
   <div id="add-tree-backdrop" onclick="closeAddTreeModal()"></div>
   <div id="add-tree-modal">
     <div id="add-tree-handle"></div>
-    <h3>Add a tree <span id="add-tree-coords-display"></span></h3>
+    <h3><span id="add-tree-title">Add a tree</span> <span id="add-tree-coords-display"></span></h3>
     <form id="add-tree-form" class="tree-form" onsubmit="submitAddTree(event)" novalidate autocomplete="off">
       <input type="hidden" name="lat" id="add-tree-lat">
       <input type="hidden" name="lng" id="add-tree-lng">
@@ -1447,7 +1458,7 @@
       <label>Notes
         <textarea name="notes" rows="3" placeholder="Any observations…"></textarea>
       </label>
-      <div id="add-tree-extra-fields" style="display:none">
+      <div id="add-tree-extra-fields" class="master-only" style="display:none">
         <div class="add-tree-year-row">
           <label>Year planted
             <input name="year_planted" type="text" inputmode="numeric" placeholder="e.g. 2021">
@@ -1464,7 +1475,7 @@
         </label>
       </div>
       <div class="add-tree-more-row">
-        <button type="button" id="btn-more-fields" onclick="toggleMoreFields()">+ More fields&hellip;</button>
+        <button type="button" id="btn-more-fields" class="master-only" onclick="toggleMoreFields()">+ More fields&hellip;</button>
         <span class="add-tree-more-hint">You can also edit the <a href="https://docs.google.com/spreadsheets/d/16056CHjRL4-hbd4hbIb1czvrryGKcwMFYWCDeMDDAHM" target="_blank" rel="noopener">trees spreadsheet</a> to add more data.</span>
       </div>
       <div class="add-tree-actions">
@@ -1478,7 +1489,7 @@
   <div id="edit-tree-backdrop" onclick="closeEditTreeModal()"></div>
   <div id="edit-tree-modal">
     <div id="edit-tree-handle"></div>
-    <h3>Edit tree</h3>
+    <h3 id="edit-tree-title">Edit tree</h3>
     <form id="edit-tree-form" class="tree-form" onsubmit="submitEditTree(event)" novalidate autocomplete="off">
       <input type="hidden" name="ref" id="edit-tree-ref">
       <label>Scientific name
@@ -1502,7 +1513,7 @@
         <label>Other names
           <input name="other_names" type="text" placeholder="e.g. Common oak, Pedunculate oak">
         </label>
-        <div class="add-tree-year-row">
+        <div class="add-tree-year-row master-only">
           <label>Year planted
             <input name="year_planted" type="text" inputmode="numeric" placeholder="e.g. 2021">
           </label>
@@ -1513,10 +1524,10 @@
             <input name="year_died" type="text" inputmode="numeric" placeholder="e.g. 2024">
           </label>
         </div>
-        <label>Form
+        <label class="master-only">Form
           <input name="form" id="edit-tree-form-input" placeholder="e.g. Standard">
         </label>
-        <label>Condition
+        <label class="master-only">Condition
           <input name="condition" id="edit-tree-condition-input" placeholder="e.g. Good">
         </label>
       </div>
@@ -1700,6 +1711,15 @@
   function squareIcon(fill) {
     // Slightly smaller than the circle (which spans 2–22); square spans 4–20
     return svgTag(`<rect x="8" y="8" width="8" height="8" fill="${fill}" stroke="white" stroke-width="1.5"/>`);
+  }
+
+  // Planned (future) trees: a saltire cross, so they can't be mistaken for
+  // existing trees or the red add-tree crosshair.
+  function crossIcon(fill) {
+    return svgTag(
+      `<path d="M5 5 L19 19 M19 5 L5 19" stroke="white" stroke-width="7" stroke-linecap="round"/>` +
+      `<path d="M5 5 L19 19 M19 5 L5 19" stroke="${fill}" stroke-width="4" stroke-linecap="round"/>`
+    );
   }
 
   function questionIcon() {
@@ -1932,7 +1952,7 @@
   function applySpeciesColour(sciName, hex) {
     speciesColours[sciName] = hex;
     try { localStorage.setItem('fc-treemap-species-colours', JSON.stringify(speciesColours)); } catch(e) {}
-    markers.forEach((marker, tree) => {
+    [...markers, ...futureMarkers].forEach(([tree, marker]) => {
       if ((tree['Scientific name'] || '').trim() === sciName) {
         marker.setIcon(makeIcon(tree, hex));
       }
@@ -1949,7 +1969,28 @@
     });
   }
 
+  // Future trees share their species' colour with existing trees; a species
+  // only planned so far gets a colour from the same scheme.
+  function futureColour(tree) {
+    const sci = (tree['Scientific name'] || '').trim();
+    if (COLOUR_TOOL) return speciesColours.hasOwnProperty(sci) ? speciesColours[sci] : '#888888';
+    if (masterColourMap.has(sci)) return masterColourMap.get(sci);
+    const names = [...masterColourMap.keys(), ...[...futureMarkers.keys()].map(t => t['Scientific name']), sci];
+    return buildColourMap(names.map(n => ({ 'Scientific name': n }))).get(sci) || '#888888';
+  }
+
+  function makeFutureIcon(tree) {
+    return L.divIcon({
+      html: crossIcon(futureColour(tree)),
+      className: '',
+      iconSize: [24, 24],
+      iconAnchor: [12, 12],
+      popupAnchor: [0, -12]
+    });
+  }
+
   function makeIcon(tree, colour) {
+    if (tree._future) return makeFutureIcon(tree);
     if (COLOUR_TOOL) {
       const sci = (tree['Scientific name'] || '').trim();
       colour = speciesColours.hasOwnProperty(sci) ? speciesColours[sci] : '#888888';
@@ -1997,8 +2038,10 @@
   }
 
   // Strip any existing size suffix (=w123-h456-s-no etc.) and query string,
-  // then reapply the requested size parameter.
+  // then reapply the requested size parameter. Any other image address
+  // (e.g. a nursery's photo of a planned tree) is used as it is.
   function googlePhotoUrl(raw, size) {
+    if (!/^https:\/\/lh\d\.googleusercontent\.com\//.test(raw)) return raw;
     const base = raw.split('?')[0].replace(/=[^/=]+$/, '');
     return `${base}=${size}`;
   }
@@ -2044,6 +2087,7 @@
       `</button>` +
       editBtn +
     `</div>`;
+    if (tree._future) html += `<div class="future-badge">Future tree</div>`;
 
     const photos = parsePhotos(tree['Photo']);
     const canAddPhoto = canContribute() && tree['Ref'];
@@ -2333,13 +2377,14 @@
   function updateLabels() {
     const bounds = map.getBounds();
     let inView = 0;
-    markers.forEach((marker) => {
+    const all = [...markers.values(), ...futureMarkers.values()];
+    all.forEach((marker) => {
       if (map.hasLayer(marker) && bounds.contains(marker.getLatLng())) inView++;
     });
     const labelThreshold = window.innerWidth <= 767 ? 20 : 80;
     const showLabels = document.getElementById('filter-show-labels').checked &&
                        (map.getZoom() >= 19 || inView < labelThreshold);
-    markers.forEach((marker) => {
+    all.forEach((marker) => {
       if (!map.hasLayer(marker)) return;
       const tooltip = marker.getTooltip();
       if (!tooltip) return;
@@ -2479,6 +2524,7 @@
     if (map.hasLayer(sectionLayer))             params.set('sections',  '1');
     if (pathsLayer && map.hasLayer(pathsLayer)) params.set('paths',     '1');
     if (currentAerialKey) params.set('aerial', currentAerialKey);
+    if (futureLayerOn)    params.set('future', '1');
     const base = window.location.origin + window.location.pathname;
     return params.toString() ? `${base}?${params}` : base;
   }
@@ -2854,8 +2900,8 @@
   // Called from a History entry's tree-name link. The tree may have been
   // deleted since, or moved before Prev Ref existed — say so rather than
   // doing nothing.
-  function focusTreeFromHistory(ref) {
-    if (!focusTreeByRef(ref)) {
+  async function focusTreeFromHistory(ref) {
+    if (!focusTreeByRef(ref) && !(await focusFutureTreeByRef(ref))) {
       showToast('This tree may have been moved or removed.');
       return;
     }
@@ -2866,6 +2912,7 @@
   const SHEET_ID = '16056CHjRL4-hbd4hbIb1czvrryGKcwMFYWCDeMDDAHM';
   const CSV_URL  = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv`;
   const HISTORY_CSV_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent('History')}`;
+  const FUTURE_CSV_URL  = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&headers=1&sheet=${encodeURIComponent('Future trees')}`;
   applyContributorGate();
 
   const baseLayers = {
@@ -3427,6 +3474,23 @@
 
   // Map<treeObject, L.Marker>
   const markers = new Map();
+  // Planned trees from the "Future trees" tab, shown by the Future trees
+  // layer. Their tree objects have _future set. "Hide markers" and the
+  // filters only apply to `markers`, never to these.
+  const futureMarkers = new Map();
+  let futureLayerOn   = new URLSearchParams(window.location.search).get('future') === '1';
+  let futureLoad      = null; // promise of the latest Future trees fetch
+  let masterColourMap = new Map(); // species colours of the existing trees
+
+  function treeMarker(tree) {
+    return tree._future ? futureMarkers.get(tree) : markers.get(tree);
+  }
+
+  // Sent with every tree/photo action, so the Apps Script works on the
+  // right tab.
+  function treeLayer(tree) {
+    return tree && tree._future ? 'future' : undefined;
+  }
 
   let pendingAddMarker = null; // temporary marker shown after add-tree submission
   let tagifyInstance   = null;
@@ -3440,7 +3504,7 @@
     // param (e.g. "123.45670" vs "123.4567") while meaning the same tree.
     const target = parseFloat(ref);
     if (isNaN(target)) return false;
-    for (const [tree, marker] of markers) {
+    for (const [tree, marker] of [...markers, ...(futureLayerOn ? futureMarkers : [])]) {
       if (parseFloat(tree['Ref']) === target) {
         map.setView(marker.getLatLng(), Math.max(map.getZoom(), 18));
         marker.openPopup();
@@ -3481,6 +3545,149 @@
   // Fetches the sheet and (re)draws every marker. `silent` is for quiet
   // refreshes after adding a tree: it keeps the current view, filters and
   // URL state, and reports failure by returning null instead of showing it.
+  // Sheet rows → tree objects keyed by column header, skipping rows without
+  // a usable location.
+  function treesFromRows(rows) {
+    const headers = rows[0].map(h => h.trim());
+    return rows.slice(1)
+      .map(row => {
+        const obj = {};
+        headers.forEach((h, i) => { obj[h] = (row[i] || '').trim(); });
+        return obj;
+      })
+      .filter(t => {
+        const lat = parseFloat(t['Latitude']);
+        const lng = parseFloat(t['Longitude']);
+        return !isNaN(lat) && !isNaN(lng);
+      });
+  }
+
+  function createTreeMarker(tree, icon) {
+    const marker = L.marker([parseFloat(tree['Latitude']), parseFloat(tree['Longitude'])], { icon });
+    marker.bindPopup(buildPopup(tree), { maxWidth: 320 });
+    const short = tree['Short name'] || tree['Scientific name'] || '';
+    marker.bindTooltip(short, { permanent: true, direction: 'right', className: 'tree-label', opacity: 1, offset: [8, 0] });
+    marker.on('mouseover', () => {
+      const sci = tree['Scientific name'] || '';
+      const com = tree['Common name'] || '';
+      const el = document.getElementById('hover-label');
+      el.innerHTML = `<span class="lbl-sci">${sci}</span>${com ? `<span class="lbl-com">${com}</span>` : ''}`;
+      el.classList.add('visible');
+    });
+    marker.on('mouseout', () => {
+      document.getElementById('hover-label').classList.remove('visible');
+    });
+    return marker;
+  }
+
+  // ── FUTURE TREES ─────────────────────────────────────────────────────────────
+  // Fetches the "Future trees" tab and (re)builds its markers, which are on
+  // the map only while the layer is on. Waits for the existing trees first,
+  // so a planned tree takes its species' colour from them.
+  function loadFutureTrees() {
+    futureLoad = (async () => {
+      await initialLoad;
+      let rows;
+      try {
+        const resp = await fetch(FUTURE_CSV_URL);
+        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+        rows = parseCSV(await resp.text());
+      } catch (err) {
+        console.error('Could not fetch future trees:', err);
+        if (futureLayerOn) showToast('Could not load future trees.');
+        return null;
+      }
+      const trees = rows.length < 2 ? [] : treesFromRows(rows);
+
+      let openRef = null;
+      for (const [tree, marker] of futureMarkers) {
+        if (marker.isPopupOpen()) openRef = tree['Ref'];
+        map.removeLayer(marker);
+      }
+      futureMarkers.clear();
+      trees.forEach(tree => {
+        tree._future = true;
+        futureMarkers.set(tree, null); // so futureColour sees every planned species
+      });
+      trees.forEach(tree => {
+        const marker = createTreeMarker(tree, makeFutureIcon(tree));
+        if (futureLayerOn) marker.addTo(map);
+        futureMarkers.set(tree, marker);
+      });
+      updateLabels();
+      if (openRef) focusTreeByRef(openRef);
+      return trees;
+    })();
+    return futureLoad;
+  }
+
+  function syncFutureRadios() {
+    document.querySelectorAll('.future-opt, #future-opt-off').forEach(el => {
+      const selected = el.id === 'future-opt-off' ? !futureLayerOn : futureLayerOn;
+      el.classList.toggle('selected', selected);
+      el.querySelector('input').checked = selected;
+    });
+  }
+
+  function setFutureLayer(on) {
+    futureLayerOn = on;
+    syncFutureRadios();
+    if (on && !futureLoad) loadFutureTrees();
+    futureMarkers.forEach(marker => {
+      if (!marker) return;
+      if (on) marker.addTo(map);
+      else    map.removeLayer(marker);
+    });
+    updateLabels();
+  }
+
+  // For a Ref that isn't an existing tree: if it's a planned one, turn the
+  // Future trees layer on and open it.
+  async function focusFutureTreeByRef(ref) {
+    await (futureLoad || loadFutureTrees());
+    const target = parseFloat(ref);
+    const isFutureRef = [...futureMarkers.keys()].some(t => parseFloat(t['Ref']) === target);
+    if (!isFutureRef) return false;
+    if (!futureLayerOn) setFutureLayer(true);
+    return focusTreeByRef(ref);
+  }
+
+  // "Future planning" group in the layers control, above the others.
+  function buildFuturePanel() {
+    const form = layerControl.getContainer().querySelector('.leaflet-control-layers-list');
+    const section = document.createElement('div');
+
+    const heading = document.createElement('div');
+    heading.className = 'layers-group-heading';
+    heading.textContent = 'Future planning';
+    section.appendChild(heading);
+
+    const row = document.createElement('label');
+    row.className = 'future-opt';
+    row.innerHTML = `<input type="radio" class="leaflet-control-layers-selector" name="future"> Future trees`;
+    row.querySelector('input').onchange = () => setFutureLayer(true);
+    // A repeat click on the selected radio doesn't fire `change`; turn it off.
+    row.querySelector('input').addEventListener('click', () => {
+      if (futureLayerOn && row.classList.contains('selected')) setFutureLayer(false);
+    });
+    section.appendChild(row);
+
+    const offRow = document.createElement('label');
+    offRow.className = 'aerial-off-row';
+    offRow.id = 'future-opt-off';
+    offRow.innerHTML = `<input type="radio" class="leaflet-control-layers-selector" name="future"> Off`;
+    offRow.querySelector('input').onchange = () => setFutureLayer(false);
+    section.appendChild(offRow);
+
+    const separator = document.createElement('div');
+    separator.className = 'leaflet-control-layers-separator';
+    form.insertBefore(separator, form.firstChild);
+    form.insertBefore(section, separator);
+    // Not setFutureLayer: the map has no view yet, so labels can't update.
+    syncFutureRadios();
+    if (futureLayerOn) loadFutureTrees();
+  }
+
   async function loadData(opts = {}) {
     const silent = opts.silent || false;
     if (!silent) {
@@ -3512,20 +3719,10 @@
       return null;
     }
 
-    const headers = rows[0].map(h => h.trim());
-    const trees = rows.slice(1)
-      .map(row => {
-        const obj = {};
-        headers.forEach((h, i) => { obj[h] = (row[i] || '').trim(); });
-        return obj;
-      })
-      .filter(t => {
-        const lat = parseFloat(t['Latitude']);
-        const lng = parseFloat(t['Longitude']);
-        return !isNaN(lat) && !isNaN(lng);
-      });
+    const trees = treesFromRows(rows);
 
     const colourMap = buildColourMap(trees);
+    masterColourMap = colourMap;
     const bounds = [];
 
     // On a refresh, replace the existing markers, remembering which tree's
@@ -3538,27 +3735,11 @@
     markers.clear();
 
     for (const tree of trees) {
-      const lat = parseFloat(tree['Latitude']);
-      const lng = parseFloat(tree['Longitude']);
       const colour = colourMap.get(tree['Scientific name']) || '#888888';
-      const icon   = makeIcon(tree, colour);
-      const marker = L.marker([lat, lng], { icon });
-      marker.bindPopup(buildPopup(tree), { maxWidth: 320 });
-      const short = tree['Short name'] || tree['Scientific name'] || '';
-      marker.bindTooltip(short, { permanent: true, direction: 'right', className: 'tree-label', opacity: 1, offset: [8, 0] });
-      marker.on('mouseover', () => {
-        const sci = tree['Scientific name'] || '';
-        const com = tree['Common name'] || '';
-        const el = document.getElementById('hover-label');
-        el.innerHTML = `<span class="lbl-sci">${sci}</span>${com ? `<span class="lbl-com">${com}</span>` : ''}`;
-        el.classList.add('visible');
-      });
-      marker.on('mouseout', () => {
-        document.getElementById('hover-label').classList.remove('visible');
-      });
+      const marker = createTreeMarker(tree, makeIcon(tree, colour));
       marker.addTo(map);
       markers.set(tree, marker);
-      bounds.push([lat, lng]);
+      bounds.push(marker.getLatLng());
     }
 
     if (silent) {
@@ -3584,15 +3765,15 @@
     // shared) — fall back to resolveStaleRef before giving up.
     const refParam = new URLSearchParams(window.location.search).get('ref');
     if (refParam && !focusTreeByRef(refParam)) {
-      resolveStaleRef(refParam).then(currentRef => {
-        if (currentRef && focusTreeByRef(currentRef)) {
+      focusFutureTreeByRef(refParam).then(found => found ? null : resolveStaleRef(refParam).then(async currentRef => {
+        if (currentRef && (focusTreeByRef(currentRef) || await focusFutureTreeByRef(currentRef))) {
           const url = new URL(window.location.href);
           url.searchParams.set('ref', currentRef);
           history.replaceState({}, '', url);
         } else {
           showToast('This tree may have been moved or removed.');
         }
-      });
+      }));
     }
     return trees;
   }
@@ -3647,7 +3828,8 @@
   buildAerialPanel();
   buildTreeCountModal();
   initCalibration();
-  loadData();
+  const initialLoad = loadData();
+  buildFuturePanel(); // after initialLoad: future trees wait for it for their colours
   maybeShowWelcome();
   // Open panel by default on desktop only
   if (window.innerWidth > 767) {
@@ -4131,6 +4313,8 @@
   function openAddTreeModal(lat, lng) {
     addTreeState = 'modal-open';
     document.getElementById('add-tree-form').reset();
+    document.getElementById('add-tree-modal').classList.toggle('future', futureLayerOn);
+    document.getElementById('add-tree-title').textContent = futureLayerOn ? 'Add a future tree' : 'Add a tree';
     if (tagifyInstance)   tagifyInstance.removeAllTags();
     if (tagifyFormField)  tagifyFormField.removeAllTags();
     if (tagifyCondition)  tagifyCondition.removeAllTags();
@@ -4221,7 +4405,7 @@
   // Google Photos.
   function setTreePhotos(tree, photos) {
     tree['Photo'] = photos.join(',');
-    markers.get(tree)?.setPopupContent(buildPopup(tree));
+    treeMarker(tree)?.setPopupContent(buildPopup(tree));
   }
 
   // Asks for one or more Google Photos image URLs (the "Copy image address"
@@ -4249,7 +4433,7 @@
     }
     showToast('Adding photo…');
     try {
-      const data = await postToScript({ action: 'appendPhotos', token: readContributorToken(), ref, urls, tree: treeLabel(tree) });
+      const data = await postToScript({ action: 'appendPhotos', token: readContributorToken(), layer: treeLayer(tree), ref, urls, tree: treeLabel(tree) });
       setTreePhotos(tree, parsePhotos(data.photos));
       showToast(urls.length > 1 ? `${urls.length} photos added.` : 'Photo added.');
     } catch (err) {
@@ -4264,7 +4448,7 @@
     if (!tree) return;
     if (!confirm('Remove this photo from the tree? It stays in Google Photos.')) return;
     try {
-      await postToScript({ action: 'removePhoto', token: readContributorToken(), ref: lbRef, url, tree: treeLabel(tree) });
+      await postToScript({ action: 'removePhoto', token: readContributorToken(), layer: treeLayer(tree), ref: lbRef, url, tree: treeLabel(tree) });
     } catch (err) {
       showToast('Failed to remove photo: ' + err.message);
       return;
@@ -4354,7 +4538,7 @@
     if (!tree) return;
     const order = lbPhotos.slice();
     try {
-      await postToScript({ action: 'reorderPhotos', token: readContributorToken(), ref: lbRef, order, tree: treeLabel(tree) });
+      await postToScript({ action: 'reorderPhotos', token: readContributorToken(), layer: treeLayer(tree), ref: lbRef, order, tree: treeLabel(tree) });
     } catch (err) {
       showToast('Failed to save new photo order: ' + err.message);
       lbPhotos = originalOrder;
@@ -4378,7 +4562,7 @@
 
   function findTreeByRef(ref) {
     let found = null;
-    markers.forEach((_marker, t) => { if (!found && t['Ref'] === ref) found = t; });
+    [...markers.keys(), ...futureMarkers.keys()].forEach(t => { if (!found && t['Ref'] === ref) found = t; });
     return found;
   }
 
@@ -4401,6 +4585,8 @@
     if (!tree) return;
 
     document.getElementById('edit-tree-ref').value = ref;
+    document.getElementById('edit-tree-modal').classList.toggle('future', !!tree._future);
+    document.getElementById('edit-tree-title').textContent = tree._future ? 'Edit future tree' : 'Edit tree';
     const form = document.getElementById('edit-tree-form');
     form.elements['sci'].value              = tree['Scientific name']   || '';
     form.elements['common'].value           = tree['Common name']       || '';
@@ -4469,6 +4655,7 @@
     const payload = {
       action:           'editTree',
       token:            readContributorToken(),
+      layer:            treeLayer(findTreeByRef(ref)),
       ref,
       sci:              form.elements['sci'].value.trim(),
       common:           form.elements['common'].value.trim(),
@@ -4502,7 +4689,8 @@
         tree['Year died']         = payload.year_died;
         tree['Form']              = payload.form_field;
         tree['Condition']         = payload.condition;
-        const marker = markers.get(tree);
+        const marker = treeMarker(tree);
+        if (tree._future) marker.setIcon(makeFutureIcon(tree)); // species may have changed
         marker.setPopupContent(buildPopup(tree));
         marker.getTooltip()?.setContent(payload.short_name || payload.sci || '');
         updateLabels();
@@ -4526,15 +4714,16 @@
     if (!tree) return;
     if (!confirm(`Delete this tree (${treeLabel(tree)}) from the spreadsheet? This cannot be undone.`)) return;
     try {
-      await postToScript({ action: 'deleteTree', token: readContributorToken(), ref, tree: treeLabel(tree) });
+      await postToScript({ action: 'deleteTree', token: readContributorToken(), layer: treeLayer(tree), ref, tree: treeLabel(tree) });
     } catch (err) {
       showToast('Failed to delete tree: ' + err.message);
       return;
     }
     closeEditTreeModal();
-    const marker = markers.get(tree);
+    const marker = treeMarker(tree);
     if (marker) { marker.closePopup(); map.removeLayer(marker); }
     markers.delete(tree);
+    futureMarkers.delete(tree);
     applyFilters();
     showToast('Tree deleted.');
   }
@@ -4543,7 +4732,7 @@
     const ref  = document.getElementById('edit-tree-ref').value;
     const tree = findTreeByRef(ref);
     if (!tree) return;
-    const marker = markers.get(tree);
+    const marker = treeMarker(tree);
     closeEditTreeModal();
     marker.closePopup();
     repositionTarget = { ref, tree, marker };
@@ -4566,11 +4755,12 @@
 
   // After adding a tree, quietly re-fetch the sheet until the new tree shows
   // up in it, then the pending marker is replaced by the real one.
-  function schedulePostSubmitReloads(lat, lng) {
+  // `reload` re-fetches the tab the tree was added to.
+  function schedulePostSubmitReloads(lat, lng, reload = () => loadData({ silent: true })) {
     const delays = [4000, 12000, 30000];
     let attempt = 0;
     async function tryReload() {
-      const trees = await loadData({ silent: true });
+      const trees = await reload();
       if (trees) {
         const found = trees.some(t =>
           Math.abs(parseFloat(t['Latitude'])  - lat) < 0.000001 &&
@@ -4599,9 +4789,12 @@
     const status = document.getElementById('add-tree-status');
     const lat    = document.getElementById('add-tree-lat').value;
     const lng    = document.getElementById('add-tree-lng').value;
+    // While the Future trees layer is on, new trees are planned ones.
+    const future = futureLayerOn;
     const payload = {
       action:    'addTree',
       token:     readContributorToken(),
+      layer:     future ? 'future' : undefined,
       lat,
       lng,
       sci:       form.elements['sci'].value.trim(),
@@ -4624,7 +4817,7 @@
       pendingAddMarker = L.marker([parseFloat(lat), parseFloat(lng)], {
         icon: pendingTreeIcon, interactive: false
       }).addTo(map).bindTooltip('Pending: ' + (payload.sci || 'New tree'), { permanent: false });
-      schedulePostSubmitReloads(parseFloat(lat), parseFloat(lng));
+      schedulePostSubmitReloads(parseFloat(lat), parseFloat(lng), future ? loadFutureTrees : undefined);
       setTimeout(() => closeAddTreeModal(), 1800);
     }).catch(err => {
       status.textContent = 'Error submitting: ' + err.message;
@@ -4661,7 +4854,7 @@
       const oldLatLng = marker.getLatLng();
       cancelReposition();
       marker.setLatLng([parseFloat(lat), parseFloat(lng)]);
-      postToScript({ action: 'repositionTree', token: readContributorToken(), ref, lat, lng, tree: treeLabel(tree) })
+      postToScript({ action: 'repositionTree', token: readContributorToken(), layer: treeLayer(tree), ref, lat, lng, tree: treeLabel(tree) })
         .then(data => {
           // Ref is derived from the coordinates, so the tree has a new one.
           tree['Latitude']  = lat;
