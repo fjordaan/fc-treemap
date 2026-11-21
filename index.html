@@ -980,22 +980,8 @@
       transition: opacity 0.15s, background 0.15s;
     }
     .tree-popup .photo-add-corner:hover { opacity: 1; background: rgba(58, 110, 82, 1); }
-    .tree-popup .photo-add-slot {
-      display: flex; flex-direction: column; align-items: center; justify-content: center;
-      gap: 4px;
-      flex: 1 1 calc(50% - 4px);
-      height: 100px;
-      border-radius: 3px;
-      border: 1.5px dashed #b5cfbf;
-      background: #f6fbf8;
-      color: #3a6e52;
-      font-family: inherit;
-      cursor: pointer;
-      padding: 4px;
-    }
-    .tree-popup .photo-add-slot:hover { background: #e8f4ec; border-color: #5a9e7a; }
-    .tree-popup .photo-add-slot-icon { font-size: 20px; line-height: 1; }
-    .tree-popup .photo-add-slot-label { font-size: 11px; font-weight: 600; }
+    .tree-popup .photo-add-link { display: inline-block; margin: 6px 0 8px; font-size: 12px; color: #3a6e52; text-decoration: none; }
+    .tree-popup .photo-add-link:hover { text-decoration: underline; }
 
     #lightbox {
       display: none;
@@ -2061,7 +2047,12 @@
 
     const photos = parsePhotos(tree['Photo']);
     const canAddPhoto = canContribute() && tree['Ref'];
-    if (photos.length || canAddPhoto) {
+    if (!photos.length && canAddPhoto) {
+      // No thumbnail to put the "+" on — adding is a desktop paste-a-link
+      // task, so a small text link rather than a big photo-sized slot.
+      html += `<a href="#" class="photo-add-link" onclick="addPhotoToExistingTree('${treeRef}'); return false;">+ Add photo</a>`;
+    }
+    if (photos.length) {
       html += `<div class="photos">`;
       const photosAttr = JSON.stringify(photos).replace(/"/g, '&quot;');
       // At most 4 thumbnails; the lightbox (opened with the full list) is
@@ -2071,17 +2062,13 @@
       shown.forEach((raw, i) => {
         const thumb = googlePhotoUrl(raw, 'w280');
         const isLast = i === shown.length - 1;
-        // Once the grid is full there's no room for an "Add photo" slot, so
-        // it becomes a small corner button on the last thumbnail.
-        const addCorner = (isLast && shown.length === 4 && canAddPhoto)
+        // Adding a photo is a small corner button on the last thumbnail.
+        const addCorner = (isLast && canAddPhoto)
           ? `<button type="button" class="photo-add-corner" title="Add a photo to this tree" onclick="event.stopPropagation(); addPhotoToExistingTree('${treeRef}'); return false;">+</button>`
           : '';
         const overflowBadge = (isLast && overflowCount > 0) ? `<div class="photo-overflow-badge">+${overflowCount}</div>` : '';
         html += `<div class="photo-thumb-wrap"><a class="photo-thumb-link" href="#" data-photos="${photosAttr}" data-index="${i}" onclick="openLightbox('${treeRef}', JSON.parse(this.dataset.photos), +this.dataset.index); return false;"><img src="${thumb}" loading="lazy" referrerpolicy="no-referrer" alt="Tree photo"/></a>${addCorner}${overflowBadge}</div>`;
       });
-      if (canAddPhoto && shown.length < 4) {
-        html += `<button type="button" class="photo-add-slot" title="Add a photo to this tree" onclick="addPhotoToExistingTree('${treeRef}'); return false;"><span class="photo-add-slot-icon">+📷</span><span class="photo-add-slot-label">Add photo</span></button>`;
-      }
       html += `</div>`;
     }
     html += row('Common name',      tree['Common name']);
