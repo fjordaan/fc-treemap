@@ -117,7 +117,7 @@ box-shadow:0 1px 4px #0005;font-size:13px;max-width:260px}
 <b>Altitude</b> <span id="lo"></span>&ndash;<span id="hi"></span> m<div class="bar"></div>
 <label><input type="checkbox" id="onlyseg"> Only candidate segments</label><br>
 Min altitude: <input type="range" id="minalt" min="0" max="150" value="0"> <span id="mav">0</span> m<br>
-<small>Thin = whole track, thick = level moving segment. Click for details.</small></div>
+<small>Thin = whole track, thick = level moving segment. Hover to pick out a clip, click for details.</small></div>
 <script>
 const tracks = __TRACKS__, segs = __SEGS__;
 const map = L.map('map').setView([51.4803, -0.2163], 17);  // Fulham Cemetery
@@ -130,17 +130,33 @@ let lo=1e9,hi=-1e9; for(const k in tracks) for(const p of tracks[k]){lo=Math.min
 document.getElementById('lo').textContent=lo.toFixed(0); document.getElementById('hi').textContent=hi.toFixed(0);
 const col=a=>`hsl(${240-240*Math.min(1,Math.max(0,(a-lo)/(hi-lo||1)))},90%,45%)`;
 let layer=L.layerGroup().addTo(map);
+// Canvas with a wide hit tolerance, so the thin 2 px tracks are easy to hover.
+const renderer=L.canvas({tolerance:6});
+// Hovering any part of a track highlights the whole clip (thicker, opaque, on
+// top) and fades every other clip, with the clip name in a tooltip.
+let byClip={}, hovered=null;
+function highlight(k){
+  if(hovered===k) return; hovered=k;
+  for(const c in byClip) for(const {line,w,o} of byClip[c])
+    line.setStyle(k===null ? {weight:w,opacity:o} : c===k ? {weight:w+4,opacity:1} : {weight:w,opacity:.12});
+  if(k!==null) byClip[k].forEach(({line})=>line.bringToFront());
+}
+function add(k,latlngs,w,o,color,popup){
+  const line=L.polyline(latlngs,{color,weight:w,opacity:o,renderer}).addTo(layer).bindPopup(popup)
+    .bindTooltip(k,{sticky:true,direction:'top',offset:[0,-8]});
+  line.on('mouseover',()=>highlight(k)).on('mouseout',()=>highlight(null));
+  (byClip[k]=byClip[k]||[]).push({line,w,o});
+}
 function draw(){
-  layer.clearLayers(); const only=document.getElementById('onlyseg').checked, minA=+document.getElementById('minalt').value;
+  layer.clearLayers(); byClip={}; hovered=null;
+  const only=document.getElementById('onlyseg').checked, minA=+document.getElementById('minalt').value;
   document.getElementById('mav').textContent=minA;
   for(const k in tracks){ const pts=tracks[k];
     if(!only){ for(let i=1;i<pts.length;i++){ if(pts[i][2]<minA) continue;
-      L.polyline([pts[i-1].slice(0,2),pts[i].slice(0,2)],{color:col(pts[i][2]),weight:2,opacity:.6}).addTo(layer)
-       .bindPopup(`${k} @ ${pts[i][3]}s, ${pts[i][2].toFixed(1)} m`); } }
+      add(k,[pts[i-1].slice(0,2),pts[i].slice(0,2)],2,.6,col(pts[i][2]),`${k} @ ${pts[i][3]}s, ${pts[i][2].toFixed(1)} m`); } }
     for(const s of segs.filter(s=>s.file===k && s.alt_mean>=minA)){
       const sp=pts.filter(p=>p[3]>=s.start&&p[3]<=s.end).map(p=>p.slice(0,2));
-      L.polyline(sp,{color:col(s.alt_mean),weight:6,opacity:.9}).addTo(layer)
-       .bindPopup(`<b>${k}</b> ${s.start}&ndash;${s.end}s (${s.duration}s)<br>alt ${s.alt_mean} m, ${s.distance_m} m @ ${s.mean_speed} m/s`);
+      add(k,sp,6,.9,col(s.alt_mean),`<b>${k}</b> ${s.start}&ndash;${s.end}s (${s.duration}s)<br>alt ${s.alt_mean} m, ${s.distance_m} m @ ${s.mean_speed} m/s`);
     } }
 }
 document.getElementById('onlyseg').onchange=draw; document.getElementById('minalt').oninput=draw; draw();
