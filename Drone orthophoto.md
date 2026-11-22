@@ -14,7 +14,7 @@ The footage (39 GB) and the intermediate files are not kept in this repo, only t
 
 ## Process
 
-1. **Read the telemetry** (`drone/parse_srt.py`). This parses every `.SRT` into a per-second CSV of position, altitude and speed. It picks out the steady level-flight segments and draws an HTML map of all the flight tracks, coloured by altitude. That is how DJI_0422 was found, without watching the footage.
+1. **Read the telemetry** (`drone/parse_srt.py`). This parses every `.SRT` into a per-second CSV of position, altitude and speed. It picks out the steady level-flight segments and draws an HTML map of all the flight tracks, coloured by altitude. That is how DJI_0422 was found, without watching the footage. View the map at [trees.fulhamcemeteryfriends.org.uk/drone/tracks_map.html](https://trees.fulhamcemeteryfriends.org.uk/drone/tracks_map.html). Thin lines are whole flights, and thick lines are level, moving segments.
 2. **Extract frames** (`drone/extract_frames.py`). This takes one frame every 10 m of ground travelled (about 90% overlap), choosing the sharpest of 5 nearby frames each time. Each frame is saved as a full-resolution JPG with the GPS position, altitude, time and focal length written into its EXIF (with [ExifTool](https://exiftool.org/)). DJI_0422 gave 86 frames.
 3. **Make the orthophoto** with [OpenDroneMap](https://opendronemap.org/) (ODM), run in Docker. ODM matches the frames, rebuilds the ground and trees in 3D, and projects that model straight down. A simple panorama stitch can't do this, which is why trees don't lean away from the centre. The result is a georeferenced GeoTIFF.
 
