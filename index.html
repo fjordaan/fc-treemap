@@ -2933,19 +2933,20 @@
       maxNativeZoom: 19
     }),
     // Drone orthophoto of the cemetery (DJI video, 7 May 2026, processed with OpenDroneMap),
-    // drawn over Esri imagery, which fills in outside the survey area and below zoom 15.
+    // drawn over Esri imagery, which fills in outside the cemetery and below zoom 15.
+    // v2: aligned to EA LiDAR / OS to within ~0.5 m (see "Drone orthophoto.md" and issue #2).
     'Drone (May 2026)': L.layerGroup([
       L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
         attribution: 'Tiles &copy; Esri &mdash; Source: Esri, Maxar, Earthstar Geographics',
         maxZoom: 21,
         maxNativeZoom: 19
       }),
-      L.tileLayer('tiles/drone-2026-05/{z}/{x}/{y}.webp', {
+      L.tileLayer('tiles/drone-2026-05-v2/{z}/{x}/{y}.webp', {
         attribution: 'Drone survey May 2026',
         minZoom: 15,
         maxZoom: 21,
         maxNativeZoom: 21,
-        bounds: [[51.47838, -0.21870], [51.48214, -0.21251]] // extent of the tile set
+        bounds: [[51.47839, -0.21818], [51.48202, -0.21320]] // extent of the imagery
       })
     ])
   };
