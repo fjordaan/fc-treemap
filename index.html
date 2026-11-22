@@ -2521,6 +2521,7 @@
     const month = getSelectedMonth();
     if (month) params.set('month', month);
     if (map.hasLayer(baseLayers['Satellite']))  params.set('satellite', '1');
+    if (map.hasLayer(baseLayers['Drone (May 2026)'])) params.set('drone', '1');
     if (map.hasLayer(sectionLayer))             params.set('sections',  '1');
     if (pathsLayer && map.hasLayer(pathsLayer)) params.set('paths',     '1');
     if (currentAerialKey) params.set('aerial', currentAerialKey);
@@ -2588,6 +2589,7 @@
       if (cb) { cb.checked = true; cb.closest('.month-btn').classList.add('selected'); }
     }
     if (params.get('satellite') === '1') { baseLayers['Street map'].remove(); baseLayers['Satellite'].addTo(map); }
+    else if (params.get('drone') === '1') { baseLayers['Street map'].remove(); baseLayers['Drone (May 2026)'].addTo(map); }
     if (params.get('sections')  === '1') sectionLayer.addTo(map);
     // paths=1 is handled inside the KML fetch callback (layer loads asynchronously)
     const aerialParam = params.get('aerial');
@@ -2929,7 +2931,23 @@
       attribution: 'Tiles &copy; Esri &mdash; Source: Esri, Maxar, Earthstar Geographics',
       maxZoom: 21,
       maxNativeZoom: 19
-    })
+    }),
+    // Drone orthophoto of the cemetery (DJI video, 7 May 2026, processed with OpenDroneMap),
+    // drawn over Esri imagery, which fills in outside the survey area and below zoom 15.
+    'Drone (May 2026)': L.layerGroup([
+      L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+        attribution: 'Tiles &copy; Esri &mdash; Source: Esri, Maxar, Earthstar Geographics',
+        maxZoom: 21,
+        maxNativeZoom: 19
+      }),
+      L.tileLayer('tiles/drone-2026-05/{z}/{x}/{y}.webp', {
+        attribution: 'Drone survey May 2026',
+        minZoom: 15,
+        maxZoom: 21,
+        maxNativeZoom: 21,
+        bounds: [[51.47838, -0.21870], [51.48214, -0.21251]] // extent of the tile set
+      })
+    ])
   };
 
   // ── AERIAL PHOTO LAYERS ──────────────────────────────────────────────────────

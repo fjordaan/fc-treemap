@@ -7,3 +7,5 @@ The tree database is a Google Sheet with public viewing rights: [Fulham Cemetery
 Tree species list: [Fulham Cemetery tree species - Google Sheets](https://docs.google.com/spreadsheets/d/1hLMmscbXL9OqI8c74IjzgJ8rfj9rqt7uL3ujtUZbJmU/edit?usp=sharing)
 
 View it here: https://trees.fulhamcemeteryfriends.org.uk/
+
+Drone orthophoto base layer (how it was made): [Drone orthophoto.md](Drone%20orthophoto.md)
