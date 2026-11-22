@@ -1,6 +1,6 @@
 # Drone orthophoto base layer
 
-The map's **Drone (May 2026)** base layer is a single, seamless, straight-down photo of the cemetery, stitched together from drone video footage. At about 3 cm per pixel it's much sharper than the Esri satellite imagery, and more recent. It lines up with Ordnance Survey and Environment Agency LiDAR data to within about half a metre, which is accurate enough for placing tree markers.
+The map's **Drone (May 2026)** base layer is a single, seamless, straight-down photo of the cemetery, stitched together from drone video footage. At 4 cm per pixel it's much sharper than the Esri satellite imagery, and more recent. It lines up with Ordnance Survey and Environment Agency LiDAR data to within about half a metre, which is accurate enough for placing tree markers.
 
 Link straight to it with `?drone=1`, the same way `?satellite=1` works.
 
@@ -41,7 +41,7 @@ The layer was made in two rounds. Version 1 used the survey flight alone. Versio
    docker run --rm -v <work>/odm:/datasets opendronemap/odm --project-path /datasets cemetery --orthophoto-resolution 5
    ```
 
-   With 86 frames this took 49 minutes on a 12-core PC with 16 GB of RAM. The result: all 86 images placed, 0.94 px reprojection error, and 4.3 cm/px ground resolution.
+   With 86 frames this took 49 minutes on a 12-core PC with 16 GB of RAM. The result: all 86 images placed, 0.94 px reprojection error, and 4.3 cm average ground sampling distance (the detail the camera captured). The orthophoto was written at 5 cm per pixel.
 
 Version 1 looked good, but it had two problems:
 
@@ -62,7 +62,7 @@ Version 1 looked good, but it had two problems:
    docker run --rm -v <work>/odm:/datasets opendronemap/odm --project-path /datasets cemetery_v2 --rolling-shutter --feature-quality high --pc-quality high --mesh-octree-depth 12 --mesh-size 300000 --orthophoto-resolution 4 --dsm --dem-resolution 10
    ```
 
-   With 398 frames this took 3.5 hours. The result: 397 of 398 images placed in one model, 0.96 px reprojection error, and **3.0 cm/px** ground resolution. `drone/compare_spots.py` makes side-by-side crops of two orthophotos at each problem spot.
+   With 398 frames this took 3.5 hours. The result: 397 of 398 images placed in one model, 0.96 px reprojection error, and 3.0 cm average ground sampling distance, thanks to the low-level footage. The orthophoto was written at **4 cm per pixel** (`--orthophoto-resolution 4`). That's slightly finer than the zoom 21 tiles, at about 4.6 cm per pixel, so the tiles lose nothing. `drone/compare_spots.py` makes side-by-side crops of two orthophotos at each problem spot.
 
 6. **Correct and crop** (`drone/accuracy/prepare_v2.py`, run with the GDAL that comes with the ODM image). This crops to the cemetery and its surroundings and shifts the image by the measured −0.56 m east and −0.29 m north (see below).
    Then `drone/mask_to_cemetery.py` makes everything outside the cemetery transparent, so Esri shows there instead of the drone's smeared views of the surrounding streets. The outline is the app's section polygons, plus the west entrance drive, buffered by 15 m with a soft edge.
