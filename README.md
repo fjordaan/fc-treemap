@@ -9,3 +9,13 @@ Tree species list: [Fulham Cemetery tree species - Google Sheets](https://docs.g
 View it here: https://trees.fulhamcemeteryfriends.org.uk/
 
 Drone orthophoto base layer (how it was made): [Drone orthophoto.md](Drone%20orthophoto.md)
+
+## Credits
+
+The map uses
+[Leaflet](https://leafletjs.com/) for the map,
+[Tagify](https://yaireo.github.io/tagify/) for the tag inputs,
+[OpenStreetMap](https://www.openstreetmap.org/) for the street map tiles, © [OpenStreetMap](https://www.openstreetmap.org/copyright) contributors, and
+[Esri World Imagery](https://www.arcgis.com/home/item.html?id=10df2279f9684e4a9f6a7f08febac2a9) for the satellite tiles (Esri, Maxar, Earthstar Geographics).
+
+`drone/os-buildings.geojson`, used to check how accurately the base layers line up, contains OS data © Crown copyright and database right 2026, from [OS OpenMap Local](https://www.ordnancesurvey.co.uk/products/os-open-map-local), licensed under the [Open Government Licence](https://www.nationalarchives.gov.uk/doc/open-government-licence/version/3/).
