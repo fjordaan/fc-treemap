@@ -32,7 +32,8 @@ def parse(path):
                 continue
             if t is not None and t not in seen and "latitude" in line:
                 la, lo, al = LAT_RE.search(line), LON_RE.search(line), ALT_RE.search(line)
-                if la and lo and al:
+                # 0,0 means no GPS fix yet: skip those points
+                if la and lo and al and (abs(float(la.group(1))) > 0.01 or abs(float(lo.group(1))) > 0.01):
                     seen.add(t)
                     rows.append((t, float(la.group(1)), float(lo.group(1)), float(al.group(1))))
     return rows
@@ -119,7 +120,7 @@ Min altitude: <input type="range" id="minalt" min="0" max="150" value="0"> <span
 <small>Thin = whole track, thick = level moving segment. Click for details.</small></div>
 <script>
 const tracks = __TRACKS__, segs = __SEGS__;
-const map = L.map('map');
+const map = L.map('map').setView([51.4803, -0.2163], 17);  // Fulham Cemetery
 const sat = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
   {maxZoom:21,maxNativeZoom:19,attribution:'Imagery &copy; Esri'}).addTo(map);
 const street = L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png',
@@ -131,17 +132,16 @@ const col=a=>`hsl(${240-240*Math.min(1,Math.max(0,(a-lo)/(hi-lo||1)))},90%,45%)`
 let layer=L.layerGroup().addTo(map);
 function draw(){
   layer.clearLayers(); const only=document.getElementById('onlyseg').checked, minA=+document.getElementById('minalt').value;
-  document.getElementById('mav').textContent=minA; const b=[];
+  document.getElementById('mav').textContent=minA;
   for(const k in tracks){ const pts=tracks[k];
     if(!only){ for(let i=1;i<pts.length;i++){ if(pts[i][2]<minA) continue;
       L.polyline([pts[i-1].slice(0,2),pts[i].slice(0,2)],{color:col(pts[i][2]),weight:2,opacity:.6}).addTo(layer)
-       .bindPopup(`${k} @ ${pts[i][3]}s, ${pts[i][2].toFixed(1)} m`); b.push(pts[i].slice(0,2)); } }
+       .bindPopup(`${k} @ ${pts[i][3]}s, ${pts[i][2].toFixed(1)} m`); } }
     for(const s of segs.filter(s=>s.file===k && s.alt_mean>=minA)){
       const sp=pts.filter(p=>p[3]>=s.start&&p[3]<=s.end).map(p=>p.slice(0,2));
       L.polyline(sp,{color:col(s.alt_mean),weight:6,opacity:.9}).addTo(layer)
        .bindPopup(`<b>${k}</b> ${s.start}&ndash;${s.end}s (${s.duration}s)<br>alt ${s.alt_mean} m, ${s.distance_m} m @ ${s.mean_speed} m/s`);
-      b.push(...sp); } }
-  if(b.length && !map._loaded) map.fitBounds(b);
+    } }
 }
 document.getElementById('onlyseg').onchange=draw; document.getElementById('minalt').oninput=draw; draw();
 </script></body></html>"""
