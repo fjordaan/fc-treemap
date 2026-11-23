@@ -367,8 +367,11 @@ function handleRepositionTree(data) {
       const hRefCol = hHeaders.indexOf('Ref') + 1;
       if (hRefCol) {
         const hRefs = historySheet.getRange(2, hRefCol, hLastRow - 1, 1).getValues();
+        // Compare numerically as well as as text, like findTreeRow: a Ref may be
+        // stored as a number (48098.2141) or as text ("48098.21410").
+        const oldRef = parseFloat(data.ref);
         for (let i = 0; i < hRefs.length; i++) {
-          if (String(hRefs[i][0]) === String(data.ref)) {
+          if (String(hRefs[i][0]) === String(data.ref) || parseFloat(hRefs[i][0]) === oldRef) {
             historySheet.getRange(i + 2, hRefCol).setValue(newRef);
           }
         }

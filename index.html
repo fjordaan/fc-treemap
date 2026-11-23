@@ -3556,9 +3556,23 @@
       const prevRefCol = headers.indexOf('Prev Ref');
       const refCol = headers.indexOf('Ref');
       if (prevRefCol === -1 || refCol === -1) return null;
-      for (const row of rows.slice(1)) {
-        if (parseFloat(row[prevRefCol]) === target) return row[refCol];
+      // Normally one lookup is enough (see above). But follow the chain of
+      // moves anyway, in case an earlier row's 'Ref' wasn't forward-rewritten
+      // (before Nov 2026 the rewrite compared Refs as text only, so it could
+      // miss a Ref stored as a number, e.g. 48098.2141 vs "48098.21410").
+      // `seen` stops a loop if a tree was moved back to an earlier position.
+      const moves = rows.slice(1).map(r => [parseFloat(r[prevRefCol]), r[refCol]]);
+      const seen = new Set([target]);
+      let current = null, key = target;
+      for (;;) {
+        const hit = moves.find(([prev]) => prev === key);
+        if (!hit) break;
+        current = hit[1];
+        key = parseFloat(current);
+        if (isNaN(key) || seen.has(key)) break;
+        seen.add(key);
       }
+      if (current) return current;
     } catch (err) {
       console.warn('Could not resolve stale tree ref:', err);
     }
