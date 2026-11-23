@@ -130,12 +130,12 @@
     }
 
     /* ── AERIAL PHOTO LAYERS (inside .leaflet-control-layers) ─────────────────── */
-    .aerial-opt, .future-opt {
+    .aerial-opt {
       display: flex; align-items: center;
       cursor: pointer;
     }
     .aerial-opt.disabled { opacity: 0.4; cursor: default; }
-    .aerial-opt.selected, .future-opt.selected { font-weight: 600; }
+    .aerial-opt.selected { font-weight: 600; }
     .aerial-checkbox-row {
       display: flex; align-items: center;
       cursor: pointer;
@@ -3658,17 +3658,14 @@
     return futureLoad;
   }
 
-  function syncFutureRadios() {
-    document.querySelectorAll('.future-opt, #future-opt-off').forEach(el => {
-      const selected = el.id === 'future-opt-off' ? !futureLayerOn : futureLayerOn;
-      el.classList.toggle('selected', selected);
-      el.querySelector('input').checked = selected;
-    });
+  function syncFutureCheckbox() {
+    const cb = document.getElementById('future-layer-toggle');
+    if (cb) cb.checked = futureLayerOn;
   }
 
   function setFutureLayer(on) {
     futureLayerOn = on;
-    syncFutureRadios();
+    syncFutureCheckbox();
     if (on && !futureLoad) loadFutureTrees();
     futureMarkers.forEach(marker => {
       if (!marker) return;
@@ -3700,28 +3697,16 @@
     section.appendChild(heading);
 
     const row = document.createElement('label');
-    row.className = 'future-opt';
-    row.innerHTML = `<input type="radio" class="leaflet-control-layers-selector" name="future"> Future trees`;
-    row.querySelector('input').onchange = () => setFutureLayer(true);
-    // A repeat click on the selected radio doesn't fire `change`; turn it off.
-    row.querySelector('input').addEventListener('click', () => {
-      if (futureLayerOn && row.classList.contains('selected')) setFutureLayer(false);
-    });
+    row.innerHTML = `<input type="checkbox" id="future-layer-toggle" class="leaflet-control-layers-selector"> Future trees`;
+    row.querySelector('input').onchange = (e) => setFutureLayer(e.target.checked);
     section.appendChild(row);
-
-    const offRow = document.createElement('label');
-    offRow.className = 'aerial-off-row';
-    offRow.id = 'future-opt-off';
-    offRow.innerHTML = `<input type="radio" class="leaflet-control-layers-selector" name="future"> Off`;
-    offRow.querySelector('input').onchange = () => setFutureLayer(false);
-    section.appendChild(offRow);
 
     const separator = document.createElement('div');
     separator.className = 'leaflet-control-layers-separator';
     form.insertBefore(separator, form.firstChild);
     form.insertBefore(section, separator);
     // Not setFutureLayer: the map has no view yet, so labels can't update.
-    syncFutureRadios();
+    syncFutureCheckbox();
     if (futureLayerOn) loadFutureTrees();
   }
 
