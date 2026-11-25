@@ -1459,6 +1459,10 @@
         <textarea name="notes" rows="3" placeholder="Any observations…"></textarea>
       </label>
       <div id="add-tree-extra-fields" class="master-only" style="display:none">
+        <label>Short name
+          <span class="field-hint">Label shown on the map (defaults to scientific name if blank)</span>
+          <input name="short_name" type="text" placeholder="e.g. Oak">
+        </label>
         <div class="add-tree-year-row">
           <label>Year planted
             <input name="year_planted" type="text" inputmode="numeric" placeholder="e.g. 2021">
@@ -4840,7 +4844,7 @@
       lng,
       sci:       form.elements['sci'].value.trim(),
       common:    form.elements['common'].value.trim(),
-
+      short_name:       form.elements['short_name'].value.trim(),
       tag:              tagifyInstance  ? tagifyInstance.value.map(t => t.value).join(', ')  : '',
       notes:            form.elements['notes'].value.trim(),
       year_planted:     form.elements['year_planted'].value.trim(),

@@ -255,6 +255,7 @@ function handleAddTree(data) {
     set('Longitude',         lng);
     set('Scientific name',   data.sci);
     set('Common name',       data.common);
+    set('Short name',        data.short_name);
     set('Tag',               data.tag);
     set('Notes',             data.notes);
     set('Year planted',      data.year_planted);
