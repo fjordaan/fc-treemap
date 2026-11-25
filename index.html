@@ -2032,6 +2032,21 @@
     return `<span class="tag-pill" style="background:hsl(${hue},60%,93%);color:hsl(${hue},50%,28%)">${esc(tag)}</span>`;
   }
 
+  // Condition pills are coloured by meaning (worst = grey/red, best = green)
+  // rather than by hashing the word. Unknown values fall back to tagPill.
+  const CONDITION_PILL_COLOURS = {
+    dead:      { bg: '#e4e4e4', fg: '#444' },
+    poor:      { bg: '#fde3c4', fg: '#8a4a00' },
+    fair:      { bg: '#fbf1b8', fg: '#6b5800' },
+    good:      { bg: '#d9f2d9', fg: '#1d6b1d' },
+    excellent: { bg: '#c8ecd4', fg: '#0d5a2c' },
+  };
+  function conditionPill(cond) {
+    const c = CONDITION_PILL_COLOURS[cond.toLowerCase()];
+    if (!c) return tagPill(cond);
+    return `<span class="tag-pill" style="background:${c.bg};color:${c.fg}">${esc(cond)}</span>`;
+  }
+
   function parseTags(tagStr) {
     if (!tagStr) return [];
     return tagStr.split(',').map(t => t.trim()).filter(Boolean);
@@ -2120,8 +2135,12 @@
     html += row('Year planted',     tree['Year planted'],     tree['Year planted']     ? ageSuffix : '');
     html += row('Est. year planted',tree['Est. year planted'],tree['Est. year planted'] ? ageSuffix : '');
     html += row('Year died',        tree['Year died']);
-    html += row('Form',             tree['Form']);
-    html += row('Condition',        tree['Condition']);
+    const pillRow = (label, val, pill) => {
+      const v = (val || '').trim();
+      return v ? `<div class="prop"><b>${label}:</b><div class="tag-pills">${pill(v)}</div></div>` : '';
+    };
+    html += pillRow('Form',         tree['Form'],      tagPill);
+    html += pillRow('Condition',    tree['Condition'], conditionPill);
     html += row('Height',           tree['Height']);
     html += row('Notes',            tree['Notes']);
 
