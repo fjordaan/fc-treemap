@@ -29,7 +29,7 @@ Clips recorded before the drone had a GPS fix log their position as 0,0. These p
 
 ## Process
 
-The layer was made in two rounds. Version 1 used the survey flight alone. Version 2 added footage from other clips for areas that came out smeared, and turned out to be far more accurately positioned too. Only version 2 is live.
+The layer was made in three rounds. Version 1 used the survey flight alone. Version 2 added footage from other clips for areas that came out smeared, and turned out to be far more accurately positioned too. Version 3 is version 2 with the remaining smeared spots retouched by hand in Photoshop. Only version 3 is live.
 
 ### Version 1: the survey flight
 
@@ -74,6 +74,19 @@ Version 1 looked good, but it had two problems:
 
    Fully transparent tiles outside the layer's `bounds` are then deleted, since Leaflet never requests them. The result is 1,399 tiles, 9.8 MB in total. A phone only downloads the few tiles on screen, typically a few hundred KB.
 
+### Version 3: retouching by hand
+
+Some spots were still smeared or wobbly in version 2: the lodge spire, tree edges, hedges, and graves in places. These were fixed in Photoshop, using stills from the video as reference and source material.
+
+1. **Mark the areas.** Each area was painted on a low-resolution copy of the corrected orthophoto (`ortho_v2_final.tif`, the shifted and cropped image before masking). There were 16 areas, some enlarged or added later.
+2. **Cut edit crops** (`drone/make_edit_kit.py`). This cuts each area, plus a 4 m margin, from the full-resolution orthophoto as a lossless TIFF. Each file name records the crop's pixel position, e.g. `crop_06_x02260_y04675_1015x1256.tif`.
+3. **Find stills** (`drone/verify_stills.py`). For each area, this finds the video frames taken closest to straight above it. Choosing by the drone's position alone wasn't enough: many clips other than DJI_0422 have the camera tilted, so the drone can be overhead while the area is out of frame. So each candidate frame is checked by matching the crop into it (SIFT features and a homography), and only frames that show the whole crop are kept, ranked by how far the drone was from directly above. How far tall things lean in a still is about that distance divided by the height: most usable stills are 20–40 m off at 120 m, so they're good for ground detail such as graves and paths, but trees and the spire lean.
+4. **Edit** each crop in Photoshop, keeping its exact pixel size, and save it flattened as an 8-bit RGB TIFF.
+5. **Paste back** (`drone/composite_edits.py`). Only pixels that differ from the original are written back, so edits in overlapping crops combine. Where two crops changed the same pixel differently, the one pasted later wins, and the script reports it. Its last argument sets which crops go first. The alpha channel is left unchanged.
+6. **Mask and tile** exactly as for version 2, keeping the same set of tile files.
+
+The retouching doesn't move anything: the edits follow the orthophoto's own ground features, so version 2's accuracy measurement still applies. It wasn't measured again, because the method compares height models, and these don't change.
+
 ## Accuracy
 
 The drone's GPS is only good to a couple of metres, and that's not good enough for placing tree markers. Both versions were therefore checked against independent references (issue #2):
@@ -104,16 +117,16 @@ Version 2's small uniform offset is about what you'd expect from datums. The dro
 
 In `index.html` the layer is a `L.layerGroup` of the Esri satellite tiles with the drone tiles on top:
 
-- `tiles/drone-2026-05-v2/{z}/{x}/{y}.webp`, from zoom 15 to 21, which matches the app's `maxZoom`.
+- `tiles/drone-2026-05-v3/{z}/{x}/{y}.webp`, from zoom 15 to 21, which matches the app's `maxZoom`.
 - A `bounds` setting with the tile set's extent, so Leaflet never asks for tiles that don't exist.
 - Outside the cemetery, and when zoomed out below 15, Esri shows through.
 
-Each new version goes into a new folder, so browsers don't mix old cached tiles with new ones. Version 1's tiles (`tiles/drone-2026-05/`) were removed when version 2 went live. They're still in the git history.
+Each new version goes into a new folder, so browsers don't mix old cached tiles with new ones. Older tiles were removed when the next version went live: version 1's (`tiles/drone-2026-05/`) and version 2's (`tiles/drone-2026-05-v2/`). They're still in the git history.
 
 ## Known issues
 
 - **Seven problem spots had no extra footage.** These are the north-east strip beyond the sports ground and four spots by the west hedge in the south. They improved only from the better processing settings.
-- **Tall, thin objects** such as the lodge steeple, and some tree edges, can still smear. These are the hardest case for this method.
+- **Tall, thin objects** such as the lodge steeple, and some tree edges, are the hardest case for this method. The worst were retouched by hand in version 3, but there was no exactly overhead view of the spire, so it's an approximation.
 - **Outer edges** of the drone image are rough where only one or two frames saw them. They're masked out, apart from a 15 m margin around the cemetery.
 
 ## Tools
