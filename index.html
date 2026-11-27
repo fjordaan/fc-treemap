@@ -2417,16 +2417,13 @@
   }
 
   function applyFilters() {
-    let excludeChanged = false;
     EXCLUDE_OPTIONS.forEach(opt => {
       if (excludeFilters[opt.key] && opt.conflictsWhen?.()) {
         excludeFilters[opt.key] = false;
         const cb = document.getElementById(`exclude-opt-${opt.key}`);
         if (cb) cb.checked = false;
-        excludeChanged = true;
       }
     });
-    if (excludeChanged) localStorage.setItem('fc-treemap-exclude-filters', JSON.stringify(excludeFilters));
 
     let count = 0;
     markers.forEach((marker, tree) => {
@@ -2458,7 +2455,6 @@
         `<span id="exclude-text-${opt.key}"></span>`;
       row.querySelector('input').onchange = (e) => {
         excludeFilters[opt.key] = e.target.checked;
-        localStorage.setItem('fc-treemap-exclude-filters', JSON.stringify(excludeFilters));
         applyFilters();
       };
       container.appendChild(row);
@@ -2637,6 +2633,11 @@
     selectAerialLayer(null, null, null);
     if (futureLayerOn) setFutureLayer(false);
     hideMarkers = false;
+    Object.assign(excludeFilters, EXCLUDE_DEFAULTS);
+    EXCLUDE_OPTIONS.forEach(opt => {
+      const cb = document.getElementById(`exclude-opt-${opt.key}`);
+      if (cb) cb.checked = excludeFilters[opt.key];
+    });
     const hideMarkersInput = document.querySelector('.aerial-checkbox-row input');
     if (hideMarkersInput) hideMarkersInput.checked = false;
     closeSearchFilter();
@@ -3027,10 +3028,12 @@
     { key: 'hedgeForm',     label: 'Exclude Form: Hedge',     match: tree => tree['Form'] === 'Hedge',
       conflictsWhen: () => [...document.querySelectorAll('.filter-form:checked')].some(cb => cb.value === 'Hedge') },
   ];
-  const excludeFilters = { deadCondition: true, shrubForm: false, bushForm: false, hedgeForm: false };
-  try {
-    Object.assign(excludeFilters, JSON.parse(localStorage.getItem('fc-treemap-exclude-filters') || '{}'));
-  } catch (e) {}
+  // Every page load starts from these defaults (Dead excluded). The choice
+  // used to be saved in localStorage, which let an old "untick" (including
+  // the automatic one when filtering on Condition: Dead) stick forever.
+  const EXCLUDE_DEFAULTS = { deadCondition: true, shrubForm: false, bushForm: false, hedgeForm: false };
+  const excludeFilters = { ...EXCLUDE_DEFAULTS };
+  try { localStorage.removeItem('fc-treemap-exclude-filters'); } catch (e) {}
 
   // ── SECTION LAYOUT ───────────────────────────────────────────────────────────
   // Coordinates converted from KML (lng,lat) → Leaflet [lat,lng], closing point removed.
@@ -3802,7 +3805,7 @@
     buildFilters(trees);
     setWateringMode(WATERING_MODE_DEFAULT);
     applyUrlFilters();
-    applyFilters(); // ensures persisted exclude-filter state is respected even with no URL params
+    applyFilters(); // applies the default exclude settings even with no URL params
     updateWateringCounts();
     if (COLOUR_TOOL) buildColourTool(trees);
 
