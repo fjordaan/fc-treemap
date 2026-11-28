@@ -2556,6 +2556,7 @@
     if (map.hasLayer(baseLayers['Satellite']))  params.set('satellite', '1');
     if (map.hasLayer(baseLayers['Drone (May 2026)'])) params.set('drone', '1');
     if (map.hasLayer(sectionLayer))             params.set('sections',  '1');
+    if (map.hasLayer(meadowLayer))              params.set('meadows',   '1');
     if (pathsLayer && map.hasLayer(pathsLayer)) params.set('paths',     '1');
     if (currentAerialKey) params.set('aerial', currentAerialKey);
     if (futureLayerOn)    params.set('future', '1');
@@ -2624,6 +2625,7 @@
     if (params.get('satellite') === '1') { baseLayers['Street map'].remove(); baseLayers['Satellite'].addTo(map); }
     else if (params.get('drone') === '1') { baseLayers['Street map'].remove(); baseLayers['Drone (May 2026)'].addTo(map); }
     if (params.get('sections')  === '1') sectionLayer.addTo(map);
+    if (params.get('meadows')   === '1') meadowLayer.addTo(map);
     // paths=1 is handled inside the KML fetch callback (layer loads asynchronously)
     const aerialParam = params.get('aerial');
     if (aerialParam) {
@@ -3114,6 +3116,34 @@
     })
   );
 
+  // No mow meadows: these sections are left unmown. Drawn as one multi-ring
+  // polygon with fillRule 'nonzero' (every ring wound the same way), so any
+  // overlap between sections isn't filled twice.
+  const MEADOW_SECTIONS = ['5', '10', '11', '12', '13'];
+  // Only the main block of section 5 is meadow, not its thin west arm: section
+  // 5's outline up to its original north edge, closed off by extending the
+  // arm's inner (east) edge north to meet it.
+  const MEADOW_COORDS = {
+    '5': [[51.4810328,-0.2176293],[51.4809727,-0.2176938],[51.4808106,-0.2176616],[51.4807906,-0.2176186],
+          [51.4808157,-0.2173638],[51.4814955,-0.2175516],[51.4814303,-0.217755]],
+  };
+  const meadowRings = SECTIONS.filter(sec => MEADOW_SECTIONS.includes(sec.name)).map(sec => {
+    const coords = MEADOW_COORDS[sec.name] || sec.coords;
+    const area = coords.reduce((a, c, i) => {
+      const n = coords[(i + 1) % coords.length];
+      return a + (c[1] * n[0] - n[1] * c[0]);
+    }, 0);
+    return area < 0 ? [...coords].reverse() : coords;
+  });
+  const meadowLayer = L.polygon(meadowRings.map(r => [r]), {
+    color: '#b89400',
+    weight: 2,
+    fillColor: '#ffd60a',
+    fillOpacity: 0.35,
+    fillRule: 'nonzero',
+    interactive: false
+  });
+
   const map = L.map('map');
   map.createPane('waterDropPane');
   map.getPane('waterDropPane').style.zIndex = 620;
@@ -3122,7 +3152,7 @@
   map.getPane('aerialPane').style.zIndex = 300; // above tiles (200), below overlays/markers (400+)
   map.getPane('aerialPane').style.pointerEvents = 'none';
   baseLayers['Street map'].addTo(map);
-  const layerControl = L.control.layers(baseLayers, { 'Section layout': sectionLayer }, { position: 'bottomleft' }).addTo(map);
+  const layerControl = L.control.layers(baseLayers, { 'Section layout': sectionLayer, 'No mow meadows': meadowLayer }, { position: 'bottomleft' }).addTo(map);
 
   const parkMarkerLayer = L.layerGroup();
   const PARK_ZOOM_THRESHOLD = 19;  // dot visible below this zoom level
