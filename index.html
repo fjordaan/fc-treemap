@@ -911,6 +911,8 @@
     .tree-popup .links > span, .tree-popup .links .feedback-link { white-space: nowrap; }
     .tree-popup .links a { color: #2a7ae2; text-decoration: none; }
     .tree-popup .links a:hover { text-decoration: underline; }
+    /* Icon is no taller than the text, so the row height doesn't change. */
+    .tree-popup .gmaps-icon { height: 1em; width: auto; vertical-align: -0.12em; margin-right: 3px; }
 
     .tag-pills { display: inline-flex; flex-wrap: wrap; gap: 4px; margin-left: 4px; }
     .tag-pill {
@@ -2031,6 +2033,10 @@
     return h % 360;
   }
 
+  // Google Maps pin (2020), from Wikimedia Commons:
+  // https://commons.wikimedia.org/wiki/File:Google_Maps_icon_(2020).svg
+  const GMAPS_ICON = '<svg class="gmaps-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 92.3 132.3" aria-hidden="true"><path fill="#1a73e8" d="M60.2 2.2C55.8.8 51 0 46.1 0 32 0 19.3 6.4 10.8 16.5l21.8 18.3L60.2 2.2z"/><path fill="#ea4335" d="M10.8 16.5C4.1 24.5 0 34.9 0 46.1c0 8.7 1.7 15.7 4.6 22l28-33.3-21.8-18.3z"/><path fill="#4285f4" d="M46.2 28.5c9.8 0 17.7 7.9 17.7 17.7 0 4.3-1.6 8.3-4.2 11.4 0 0 13.9-16.6 27.5-32.7-5.6-10.8-15.3-19-27-22.7L32.6 34.8c3.3-3.8 8.1-6.3 13.6-6.3"/><path fill="#fbbc04" d="M46.2 63.8c-9.8 0-17.7-7.9-17.7-17.7 0-4.3 1.5-8.3 4.1-11.3l-28 33.3c4.8 10.6 12.8 19.2 21 29.9l34.1-40.5c-3.3 3.9-8.1 6.3-13.5 6.3"/><path fill="#34a853" d="M59.1 109.2c15.4-24.1 33.3-35 33.3-63 0-7.7-1.9-14.9-5.2-21.3L25.6 98c2.6 3.4 5.3 7.3 7.9 11.3 9.4 14.5 6.8 23.1 12.8 23.1s3.4-8.7 12.8-23.2"/></svg>';
+
   function tagPill(tag) {
     const hue = tagHue(tag);
     return `<span class="tag-pill" style="background:hsl(${hue},60%,93%);color:hsl(${hue},50%,28%)">${esc(tag)}</span>`;
@@ -2150,7 +2156,8 @@
 
     const monthVals = (tree['Months'] || '').split(',').map(m => m.trim()).filter(Boolean);
     if (monthVals.length) {
-      html += `<div class="prop"><b>Seasonal interest:</b> <span>${monthVals.join(', ')}</span></div>`;
+      const monthPill = m => `<span class="tag-pill" style="background:#eef0f2;color:#4a5560">${esc(m)}</span>`;
+      html += `<div class="prop"><b>Seasonal interest:</b><div class="tag-pills">${monthVals.map(monthPill).join('')}</div></div>`;
     }
 
     const tags = parseTags(tree['Tag']);
@@ -2176,15 +2183,15 @@
     }
 
     const links = [];
-    if (tree['FCF URL'])    links.push(`<a href="${tree['FCF URL']}"    target="_blank" rel="noopener">FCF</a>`);
+    if (tree['FCF URL'])    links.push(`<a href="${tree['FCF URL']}"    target="_blank" rel="noopener" title="Description by Fulham Cemetery Friends">FCF</a>`);
     if (tree['Wikipedia'])  links.push(`<a href="${tree['Wikipedia']}"  target="_blank" rel="noopener">Wikipedia</a>`);
-    if (tree['TSO'])        links.push(`<a href="${tree['TSO']}"        target="_blank" rel="noopener">TSO</a>`);
+    if (tree['TSO'])        links.push(`<a href="${tree['TSO']}"        target="_blank" rel="noopener" title="Trees and Shrubs Online">TSO</a>`);
     if (tree['Identification']) {
       tree['Identification'].split(',').map(u => u.trim()).filter(Boolean).forEach(url => {
-        links.push(`<a href="${url}" target="_blank" rel="noopener">ID</a>`);
+        links.push(`<a href="${url}" target="_blank" rel="noopener" title="Help with identification">ID</a>`);
       });
     }
-    if (tree['Latitude'] && tree['Longitude']) links.push(`<a href="https://maps.google.com/?q=${tree['Latitude']},${tree['Longitude']}" target="_blank" rel="noopener">Google Maps</a>`);
+    if (tree['Latitude'] && tree['Longitude']) links.push(`<a class="gmaps-link" href="https://maps.google.com/?q=${tree['Latitude']},${tree['Longitude']}" target="_blank" rel="noopener" title="Open in Google Maps">${GMAPS_ICON}Map</a>`);
     const ref = tree['Ref'] || '';
     const formId = `ff-${ref.replace(/\./g, '-')}`;
     const sciName = (tree['Scientific name'] || '').replace(/'/g, '&#39;');
